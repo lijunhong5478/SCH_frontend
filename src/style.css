@@ -1,0 +1,280 @@
+:root {
+  /* 基础字体和排版 */
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* 医疗主题配色 */
+  --medical-blue: #1E88E5;
+  --medical-blue-light: #90CAF9;
+  --medical-blue-dark: #1565C0;
+  --medical-green: #4CAF50;
+  --medical-green-light: #81C784;
+  --medical-green-dark: #388E3C;
+  --medical-white: #FFFFFF;
+  --medical-gray-light: #F5F5F5;
+  --medical-gray: #9E9E9E;
+  --medical-gray-dark: #616161;
+  --medical-warning: #FF9800;
+  --medical-danger: #F44336;
+  --medical-success: #4CAF50;
+  --medical-info: #2196F3;
+
+  /* 功能色 */
+  --success-color: var(--medical-success);
+  --warning-color: var(--medical-warning);
+  --error-color: var(--medical-danger);
+  --info-color: var(--medical-info);
+
+  /* 阴影系统 */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.2);
+  --shadow-blue: 0 8px 20px rgba(30, 136, 229, 0.2);
+
+  /* 圆角系统 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* 过渡动画 */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+
+  /* 间距系统 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+
+  /* 字体大小 */
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+}
+
+/* 基础重置和通用样式 */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.5;
+  color: var(--medical-gray-dark);
+  background-color: var(--medical-gray-light);
+}
+
+/* 链接样式 */
+a {
+  color: var(--medical-blue);
+  text-decoration: none;
+  transition: color var(--transition-normal);
+}
+
+a:hover {
+  color: var(--medical-blue-dark);
+  text-decoration: underline;
+}
+
+/* 标题样式 */
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 0;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: var(--text-3xl);
+  color: var(--medical-blue-dark);
+}
+
+h2 {
+  font-size: var(--text-2xl);
+  color: var(--medical-blue);
+}
+
+h3 {
+  font-size: var(--text-xl);
+  color: var(--medical-gray-dark);
+}
+
+/* 按钮基础样式 */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-size: var(--text-base);
+  font-weight: 500;
+  transition: all var(--transition-normal);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+}
+
+button:focus {
+  outline: 2px solid var(--medical-blue);
+  outline-offset: 2px;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 卡片组件基础样式 */
+.card {
+  background: var(--medical-white);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--transition-normal);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* 工具类 */
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-sm {
+  gap: var(--spacing-sm);
+}
+
+.gap-md {
+  gap: var(--spacing-md);
+}
+
+.gap-lg {
+  gap: var(--spacing-lg);
+}
+
+/* 医疗主题特定样式 */
+.medical-gradient {
+  background: linear-gradient(135deg, var(--medical-blue), var(--medical-blue-light));
+}
+
+.medical-gradient-reverse {
+  background: linear-gradient(135deg, var(--medical-blue-light), var(--medical-blue));
+}
+
+.medical-gradient-green {
+  background: linear-gradient(135deg, var(--medical-green), var(--medical-green-light));
+}
+
+.medical-bg-light {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+}
+
+/* 动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.slide-in {
+  animation: slideIn 0.4s ease-out;
+}
+
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  :root {
+    --spacing-lg: 16px;
+    --spacing-xl: 24px;
+    --text-3xl: 24px;
+    --text-2xl: 20px;
+    --text-xl: 18px;
+  }
+
+  .card {
+    padding: var(--spacing-md);
+  }
+}
