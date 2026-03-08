@@ -1,601 +1,792 @@
-<template>
-  <div class="resident-dashboard">
-    <!-- 页面头部 -->
-    <header class="dashboard-header">
-      <div class="header-left">
-        <h1 class="dashboard-title">居民健康中心</h1>
-        <p class="dashboard-subtitle">您的健康，我们的责任</p>
-      </div>
-      <div class="header-right">
-        <div class="user-info">
-          <div class="user-avatar">
-            <span class="avatar-placeholder">👤</span>
-          </div>
-          <div class="user-details">
-            <span class="user-name">居民 {{ user?.username }}</span>
-            <span class="user-id">ID: R{{ user?.id?.toString().padStart(6, '0') || '000000' }}</span>
-          </div>
-          <button @click="handleLogout" class="logout-btn">退出登录</button>
-        </div>
-      </div>
-    </header>
+﻿<template>
+<div class="resident-dashboard">
+<div class="dashboard-shell">
+<aside class="sidebar">
+<div class="sidebar-brand">
+<div class="brand-icon">
+<el-icon class="material-symbols-outlined"><FirstAidKit /></el-icon>
+</div>
+<div class="brand-text">
+<h1>社区健康服务</h1>
+<p>Health Service</p>
+</div>
+</div>
 
-    <!-- 主要内容区域 -->
-    <main class="dashboard-main">
-      <!-- 健康概览 -->
-      <div class="health-overview">
-        <h2 class="section-title">健康概览</h2>
-        <div class="health-cards">
-          <div class="health-card">
-            <div class="health-icon">❤️</div>
-            <div class="health-content">
-              <h3 class="health-title">心率</h3>
-              <p class="health-value">72 BPM</p>
-              <p class="health-status normal">正常</p>
-            </div>
-          </div>
+<nav class="menu-list">
+<button
+v-for="item in menuItems"
+:key="item.key"
+class="menu-item"
+:class="{ active: item.key === activeMenu }"
+type="button"
+@click="switchMenu(item.key)"
+>
+<el-icon class="material-symbols-outlined menu-icon">
+<component :is="resolveMenuIcon(item.icon)" />
+</el-icon>
+<span class="menu-label">{{ item.label }}</span>
+</button>
+</nav>
 
-          <div class="health-card">
-            <div class="health-icon">🌡️</div>
-            <div class="health-content">
-              <h3 class="health-title">体温</h3>
-              <p class="health-value">36.5°C</p>
-              <p class="health-status normal">正常</p>
-            </div>
-          </div>
+<div class="sidebar-user">
+<div class="avatar">
+<img v-if="userAvatarUrl" :src="userAvatarUrl" alt="用户头像" class="avatar-image" />
+<span v-else>{{ userInitial }}</span>
+</div>
+<div class="user-meta">
+<p class="name">{{ userName }}</p>
+<p class="role">{{ userRoleText }}</p>
+</div>
+</div>
+</aside>
 
-          <div class="health-card">
-            <div class="health-icon">🩸</div>
-            <div class="health-content">
-              <h3 class="health-title">血压</h3>
-              <p class="health-value">120/80 mmHg</p>
-              <p class="health-status normal">正常</p>
-            </div>
-          </div>
+<div class="main-shell">
+<header class="topbar">
+<div>
+<h2>社区医疗服务系统 · 居民端</h2>
+</div>
+<div class="topbar-actions">
+<button class="plain-action password-btn" type="button" @click="openPasswordDialog">
+<el-icon class="material-symbols-outlined"><Refresh /></el-icon>
+修改密码
+</button>
+<button class="logout" type="button" @click="handleLogout">退出登录</button>
+</div>
+</header>
 
-          <div class="health-card">
-            <div class="health-icon">⚖️</div>
-            <div class="health-content">
-              <h3 class="health-title">体重</h3>
-              <p class="health-value">68 kg</p>
-              <p class="health-status attention">建议关注</p>
-            </div>
-          </div>
-        </div>
-      </div>
+<main class="content">
+<transition name="fade-slide" mode="out-in">
+<section
+v-if="activeMenu === 'education'"
+key="education"
+class="module-section health-education-section"
+>
+<HealthEducation />
+</section>
 
-      <!-- 服务入口 -->
-      <div class="services-section">
-        <h2 class="section-title">医疗服务</h2>
-        <div class="services-grid">
-          <div class="service-card" @click="navigateTo('appointment')">
-            <div class="service-icon">📅</div>
-            <h3 class="service-title">在线预约</h3>
-            <p class="service-desc">预约医生门诊时间</p>
-            <span class="service-badge popular">热门</span>
-          </div>
+<section v-else :key="activeMenu" class="module-section">
+<div class="module-card">
+<div class="module-icon" :class="currentModule.colorClass">
+<el-icon class="material-symbols-outlined module-symbol">
+<component :is="resolveMenuIcon(currentModule.icon)" />
+</el-icon>
+</div>
+<h3>{{ currentModule.label }}</h3>
+<p>{{ currentModule.description }}</p>
+<button type="button" class="primary-action">{{ currentModule.actionLabel }}</button>
+</div>
+</section>
+</transition>
+</main>
+</div>
+</div>
 
-          <div class="service-card" @click="navigateTo('medical-records')">
-            <div class="service-icon">📋</div>
-            <h3 class="service-title">健康档案</h3>
-            <p class="service-desc">查看个人健康记录</p>
-          </div>
+<div
+v-if="showPasswordDialog"
+class="password-dialog-mask"
+role="dialog"
+aria-modal="true"
+aria-label="修改密码"
+@click.self="closePasswordDialog"
+>
+<div class="password-dialog">
+<div class="dialog-header">
+<h3>修改密码</h3>
+<button
+type="button"
+class="icon-close"
+:disabled="passwordSubmitting"
+@click="closePasswordDialog"
+>
+<el-icon class="material-symbols-outlined"><Close /></el-icon>
+</button>
+</div>
 
-          <div class="service-card" @click="navigateTo('online-consultation')">
-            <div class="service-icon">💬</div>
-            <h3 class="service-title">在线咨询</h3>
-            <p class="service-desc">与医生在线交流</p>
-          </div>
+<form class="password-form" @submit.prevent="submitPasswordChange">
+<label class="field">
+<span>旧密码</span>
+<input
+v-model="passwordForm.oldPassword"
+type="password"
+autocomplete="current-password"
+placeholder="请输入旧密码"
+/>
+</label>
 
-          <div class="service-card" @click="navigateTo('medication')">
-            <div class="service-icon">💊</div>
-            <h3 class="service-title">用药提醒</h3>
-            <p class="service-desc">设置和管理用药提醒</p>
-          </div>
+<label class="field">
+<span>新密码</span>
+<input
+v-model="passwordForm.newPassword"
+type="password"
+autocomplete="new-password"
+placeholder="请输入新密码（至少6位）"
+/>
+</label>
 
-          <div class="service-card" @click="navigateTo('health-education')">
-            <div class="service-icon">📚</div>
-            <h3 class="service-title">健康教育</h3>
-            <p class="service-desc">学习健康知识和预防</p>
-          </div>
+<label class="field">
+<span>确认新密码</span>
+<input
+v-model="passwordForm.confirmPassword"
+type="password"
+autocomplete="new-password"
+placeholder="请再次输入新密码"
+/>
+</label>
 
-          <div class="service-card" @click="navigateTo('emergency-contact')">
-            <div class="service-icon">🚨</div>
-            <h3 class="service-title">紧急联系</h3>
-            <p class="service-desc">紧急医疗联系方式</p>
-          </div>
-        </div>
-      </div>
+<p v-if="passwordFeedback" class="feedback" :class="{ success: passwordFeedbackSuccess }">
+{{ passwordFeedback }}
+</p>
 
-      <!-- 近期活动 -->
-      <div class="recent-activities">
-        <h2 class="section-title">近期活动</h2>
-        <div class="activities-list">
-          <div class="activity-item">
-            <div class="activity-icon">🏥</div>
-            <div class="activity-content">
-              <h3 class="activity-title">门诊复诊完成</h3>
-              <p class="activity-desc">李医生 - 内科门诊</p>
-              <p class="activity-time">今天 10:30 AM</p>
-            </div>
-            <span class="activity-status completed">已完成</span>
-          </div>
-
-          <div class="activity-item">
-            <div class="activity-icon">💊</div>
-            <div class="activity-content">
-              <h3 class="activity-title">处方领取</h3>
-              <p class="activity-desc">降压药处方已领取</p>
-              <p class="activity-time">昨天 15:20 PM</p>
-            </div>
-            <span class="activity-status completed">已完成</span>
-          </div>
-
-          <div class="activity-item">
-            <div class="activity-icon">📅</div>
-            <div class="activity-content">
-              <h3 class="activity-title">预约提醒</h3>
-              <p class="activity-desc">下周二的体检预约</p>
-              <p class="activity-time">3天后 9:00 AM</p>
-            </div>
-            <span class="activity-status upcoming">即将开始</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 健康贴士 -->
-      <div class="health-tips">
-        <h2 class="section-title">今日健康贴士</h2>
-        <div class="tip-content">
-          <div class="tip-icon">💡</div>
-          <div class="tip-text">
-            <h3>春季健康提醒</h3>
-            <p>春季是呼吸道疾病高发季节，请注意保持室内通风，适当增加户外活动，保持充足睡眠，增强身体抵抗力。如有不适，请及时就医。</p>
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <!-- 底部信息 -->
-    <footer class="dashboard-footer">
-      <div class="footer-content">
-        <p class="footer-title">社区医疗服务系统</p>
-        <p class="footer-subtitle">为您的健康保驾护航</p>
-        <div class="footer-links">
-          <a href="#" class="footer-link">健康知识</a>
-          <a href="#" class="footer-link">医生团队</a>
-          <a href="#" class="footer-link">联系我们</a>
-          <a href="#" class="footer-link">关于我们</a>
-        </div>
-        <p class="footer-copyright">© 2024 社区医疗服务系统 版权所有</p>
-      </div>
-    </footer>
-  </div>
+<div class="dialog-actions">
+<button type="button" class="outline-btn" :disabled="passwordSubmitting" @click="closePasswordDialog">
+取消
+</button>
+<button type="submit" class="primary-action" :disabled="passwordSubmitting">
+{{ passwordSubmitting ? '提交中...' : '确认修改' }}
+</button>
+</div>
+</form>
+</div>
+</div>
+</div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, reactive, ref } from 'vue';
+import type { Component } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import {
+Calendar,
+ChatDotRound,
+Close,
+Document,
+FirstAidKit,
+HomeFilled,
+Menu,
+Reading,
+Refresh,
+} from '@element-plus/icons-vue';
 import { useAuthStore } from '@/stores/auth.store';
+import { authApi } from '@/api/auth.api';
+import HealthEducation from '@/components/admin/HealthEducation.vue';
+
+type ResidentMenuKey = 'workbench' | 'appointments' | 'health-record' | 'consultation' | 'education';
+
+interface MenuItem {
+key: ResidentMenuKey;
+label: string;
+icon: string;
+description: string;
+actionLabel: string;
+colorClass: string;
+}
+
+const menuItems: MenuItem[] = [
+{
+key: 'workbench',
+label: '工作台',
+icon: 'home',
+description: '查看您的健康摘要、待处理事项与最近预约记录。',
+actionLabel: '刷新工作台',
+colorClass: 'blue',
+},
+{
+key: 'appointments',
+label: '预约挂号',
+icon: 'calendar',
+description: '在线预约社区医疗机构的门诊、专家或检查服务。',
+actionLabel: '立即预约',
+colorClass: 'cyan',
+},
+{
+key: 'health-record',
+label: '健康档案',
+icon: 'document',
+description: '查看个人健康档案、历次就诊记录和体检报告。',
+actionLabel: '查看健康档案',
+colorClass: 'green',
+},
+{
+key: 'consultation',
+label: '在线咨询',
+icon: 'chat',
+description: '向社区医生在线提问，获取专业的健康建议和指导。',
+actionLabel: '发起咨询',
+colorClass: 'purple',
+},
+{
+key: 'education',
+label: '健康宣教',
+icon: 'reading',
+description: '浏览社区健康资讯、疾病预防知识与科普宣教内容。',
+actionLabel: '查看宣教内容',
+colorClass: 'orange',
+},
+];
+
+const menuIconMap: Record<string, Component> = {
+home: HomeFilled,
+calendar: Calendar,
+document: Document,
+chat: ChatDotRound,
+reading: Reading,
+};
+
+function resolveMenuIcon(iconName: string): Component {
+return menuIconMap[iconName] || Menu;
+}
 
 const authStore = useAuthStore();
+const route = useRoute();
 const router = useRouter();
 
-const user = computed(() => authStore.user);
+const validMenuKeys = menuItems.map((item) => item.key);
 
-const handleLogout = () => {
-  authStore.logout();
-  router.push('/login');
-};
+const activeMenu = computed<ResidentMenuKey>(() => {
+const tab = route.query.tab;
+if (typeof tab === 'string' && validMenuKeys.includes(tab as ResidentMenuKey)) {
+return tab as ResidentMenuKey;
+}
+return 'workbench';
+});
 
-const navigateTo = (service: string) => {
-  console.log(`访问服务: ${service}`);
-  alert(`服务开发中: ${service}`);
-};
+const currentModule = computed<MenuItem>(() => {
+return menuItems.find((item) => item.key === activeMenu.value) ?? menuItems[0]!;
+});
+
+const userName = computed(() => authStore.user?.username || '居民');
+const userAvatarUrl = computed(() => authStore.user?.avatarUrl || '');
+
+const userInitial = computed(() => {
+const firstChar = userName.value.trim().charAt(0);
+return firstChar || '民';
+});
+
+const userRoleText = computed(() => '社区居民');
+
+const showPasswordDialog = ref(false);
+const passwordSubmitting = ref(false);
+const passwordFeedback = ref('');
+const passwordFeedbackSuccess = ref(false);
+const passwordForm = reactive({
+oldPassword: '',
+newPassword: '',
+confirmPassword: '',
+});
+
+function switchMenu(key: ResidentMenuKey) {
+router.replace({
+path: route.path,
+query: {
+...route.query,
+tab: key,
+},
+});
+}
+
+function resetPasswordState() {
+passwordForm.oldPassword = '';
+passwordForm.newPassword = '';
+passwordForm.confirmPassword = '';
+passwordFeedback.value = '';
+passwordFeedbackSuccess.value = false;
+}
+
+function openPasswordDialog() {
+resetPasswordState();
+showPasswordDialog.value = true;
+}
+
+function closePasswordDialog() {
+if (passwordSubmitting.value) {
+return;
+}
+showPasswordDialog.value = false;
+resetPasswordState();
+}
+
+async function submitPasswordChange() {
+passwordFeedback.value = '';
+passwordFeedbackSuccess.value = false;
+
+if (!passwordForm.oldPassword.trim() || !passwordForm.newPassword.trim()) {
+passwordFeedback.value = '请输入旧密码和新密码';
+return;
+}
+
+if (passwordForm.newPassword.trim().length < 6) {
+passwordFeedback.value = '新密码长度至少为6个字符';
+return;
+}
+
+if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+passwordFeedback.value = '两次输入的新密码不一致';
+return;
+}
+
+passwordSubmitting.value = true;
+const result = await authStore.changePassword(passwordForm.oldPassword, passwordForm.newPassword);
+passwordSubmitting.value = false;
+
+passwordFeedback.value = result.message;
+passwordFeedbackSuccess.value = result.success;
+
+if (result.success) {
+setTimeout(() => {
+showPasswordDialog.value = false;
+resetPasswordState();
+}, 800);
+}
+}
+
+async function handleLogout() {
+try {
+await authApi.logout();
+} catch {
+// 接口失败时仍继续本地登出
+}
+authStore.logout();
+router.push('/login');
+}
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .resident-dashboard {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
-  padding: 20px;
+height: 100vh;
+overflow: hidden;
+background:
+radial-gradient(circle at 12% 20%, rgba(19, 127, 236, 0.1), transparent 38%),
+radial-gradient(circle at 85% 5%, rgba(14, 165, 233, 0.09), transparent 32%),
+#f4f8fc;
+color: #0f172a;
 }
 
-.dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 30px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  margin-bottom: 30px;
+.dashboard-shell {
+height: 100%;
+display: flex;
 }
 
-.header-left .dashboard-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #1E88E5;
-  margin: 0;
+.sidebar {
+width: 190px;
+background: linear-gradient(180deg, #0f172a, #1e293b 40%, #0f172a 100%);
+color: #fff;
+padding: 20px 0;
+display: flex;
+flex-direction: column;
+border-right: 1px solid #1f334f;
+flex-shrink: 0;
+overflow-y: auto;
 }
 
-.dashboard-subtitle {
-  color: #666;
-  margin: 5px 0 0;
-  font-size: 14px;
+.sidebar-brand {
+display: flex;
+gap: 12px;
+align-items: center;
+padding: 8px 16px 20px;
 }
 
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 15px;
+.brand-icon {
+width: 40px;
+height: 40px;
+border-radius: 10px;
+background: #137fec;
+display: flex;
+align-items: center;
+justify-content: center;
 }
 
-.user-avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.brand-text h1 {
+margin: 0;
+font-size: 15px;
+color: #fff;
 }
 
-.avatar-placeholder {
-  font-size: 24px;
+.brand-text p {
+margin: 2px 0 0;
+font-size: 12px;
+color: #94a3b8;
 }
 
-.user-details {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+.menu-list {
+display: grid;
+gap: 4px;
+margin-top: 8px;
+padding: 0;
 }
 
-.user-name {
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
+.menu-item {
+border: 0;
+background: transparent;
+color: #a8b5c7;
+border-radius: 10px;
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 10px 0px;
+cursor: pointer;
+transition: all 0.2s ease;
+text-align: left;
 }
 
-.user-id {
-  font-size: 14px;
-  color: #666;
+.menu-item:hover {
+background: rgba(255, 255, 255, 0.08);
+color: #fff;
 }
 
-.logout-btn {
-  padding: 8px 16px;
-  background: #f44336;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.3s;
+.menu-item.active {
+background: linear-gradient(90deg, #137fec, #3b9cf8);
+color: #fff;
+box-shadow: 0 8px 20px rgba(19, 127, 236, 0.35);
 }
 
-.logout-btn:hover {
-  background: #d32f2f;
+.menu-label {
+font-size: 15px;
+font-weight: 600;
 }
 
-.dashboard-main {
-  max-width: 1200px;
-  margin: 0 auto;
+.menu-icon {
+font-size: 20px;
 }
 
-.section-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #333;
-  margin: 0 0 20px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #1E88E5;
+.sidebar-user {
+margin-top: auto;
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 14px 16px;
+border-top: 1px solid rgba(148, 163, 184, 0.3);
 }
 
-.health-overview {
-  margin-bottom: 40px;
+.avatar {
+width: 36px;
+height: 36px;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+font-weight: 700;
+background: rgba(255, 255, 255, 0.18);
+overflow: hidden;
 }
 
-.health-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
+.avatar-image {
+width: 100%;
+height: 100%;
+object-fit: cover;
 }
 
-.health-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s;
+.user-meta .name {
+margin: 0;
+font-size: 13px;
 }
 
-.health-card:hover {
-  transform: translateY(-5px);
+.user-meta .role {
+margin: 2px 0 0;
+font-size: 12px;
+color: #94a3b8;
 }
 
-.health-icon {
-  font-size: 40px;
+.main-shell {
+flex: 1;
+min-width: 0;
+display: flex;
+flex-direction: column;
 }
 
-.health-content .health-title {
-  font-size: 16px;
-  color: #666;
-  margin: 0 0 8px;
+.topbar {
+min-height: 64px;
+background: rgba(255, 255, 255, 0.9);
+backdrop-filter: blur(6px);
+border-bottom: 1px solid #e2e8f0;
+padding: 12px 24px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 12px;
 }
 
-.health-value {
-  font-size: 24px;
-  font-weight: 600;
-  color: #1E88E5;
-  margin: 0 0 5px;
+.topbar h2 {
+margin: 0;
+font-size: 18px;
+color: #0f172a;
 }
 
-.health-status {
-  font-size: 14px;
-  font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 12px;
-  display: inline-block;
+.topbar-actions {
+display: flex;
+align-items: center;
+gap: 10px;
 }
 
-.health-status.normal {
-  background: #d4edda;
-  color: #155724;
+.plain-action,
+.primary-action,
+.logout,
+.outline-btn {
+border: 0;
+border-radius: 10px;
+display: inline-flex;
+align-items: center;
+gap: 6px;
+cursor: pointer;
+font-size: 13px;
+font-weight: 600;
+height: 38px;
+padding: 0 12px;
 }
 
-.health-status.attention {
-  background: #fff3cd;
-  color: #856404;
+.plain-action {
+background: #fff;
+border: 1px solid #dbe5f1;
+color: #334155;
 }
 
-.services-section {
-  margin-bottom: 40px;
+.primary-action {
+background: #137fec;
+color: #fff;
+box-shadow: 0 8px 16px rgba(19, 127, 236, 0.28);
 }
 
-.services-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 25px;
+.password-btn {
+padding: 0 14px;
 }
 
-.service-card {
-  background: white;
-  border-radius: 12px;
-  padding: 25px;
-  text-align: center;
-  cursor: pointer;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s;
-  border: 2px solid transparent;
-  position: relative;
+.logout {
+background: #fee2e2;
+color: #b91c1c;
 }
 
-.service-card:hover {
-  transform: translateY(-5px);
-  border-color: #1E88E5;
-  box-shadow: 0 8px 16px rgba(30, 136, 229, 0.2);
+.password-dialog-mask {
+position: fixed;
+inset: 0;
+background: rgba(15, 23, 42, 0.45);
+backdrop-filter: blur(2px);
+display: grid;
+place-items: center;
+padding: 16px;
+z-index: 100;
 }
 
-.service-icon {
-  font-size: 48px;
-  margin-bottom: 15px;
-  color: #1E88E5;
+.password-dialog {
+width: min(460px, 100%);
+background: #fff;
+border-radius: 16px;
+border: 1px solid #dbe5f1;
+box-shadow: 0 18px 36px rgba(15, 23, 42, 0.2);
+padding: 18px;
 }
 
-.service-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #333;
-  margin: 0 0 10px;
+.dialog-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 12px;
 }
 
-.service-desc {
-  font-size: 14px;
-  color: #666;
-  margin: 0;
-  line-height: 1.5;
+.dialog-header h3 {
+margin: 0;
+font-size: 20px;
+color: #0f172a;
 }
 
-.service-badge {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
+.icon-close {
+border: 0;
+background: #f1f5f9;
+color: #334155;
+width: 34px;
+height: 34px;
+border-radius: 8px;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+cursor: pointer;
 }
 
-.service-badge.popular {
-  background: #ffebee;
-  color: #c62828;
+.password-form {
+display: grid;
+gap: 12px;
 }
 
-.recent-activities {
-  background: white;
-  border-radius: 12px;
-  padding: 30px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  margin-bottom: 40px;
+.field {
+display: grid;
+gap: 6px;
+font-size: 13px;
+font-weight: 600;
+color: #334155;
 }
 
-.activities-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+.field input {
+height: 40px;
+border-radius: 10px;
+border: 1px solid #cbd5e1;
+padding: 0 12px;
+font-size: 14px;
+outline: none;
+transition: border-color 0.2s ease;
 }
 
-.activity-item {
-  display: flex;
-  align-items: center;
-  padding: 15px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border-left: 4px solid #1E88E5;
+.field input:focus {
+border-color: #137fec;
 }
 
-.activity-icon {
-  font-size: 24px;
-  margin-right: 15px;
-  color: #1E88E5;
+.feedback {
+margin: 0;
+font-size: 13px;
+color: #b91c1c;
 }
 
-.activity-content {
-  flex: 1;
+.feedback.success {
+color: #047857;
 }
 
-.activity-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-  margin: 0 0 5px;
+.dialog-actions {
+margin-top: 6px;
+display: flex;
+justify-content: flex-end;
+gap: 10px;
 }
 
-.activity-desc {
-  font-size: 14px;
-  color: #666;
-  margin: 0 0 5px;
+.outline-btn {
+color: #137fec;
+background: #fff;
+border: 1px solid #137fec;
 }
 
-.activity-time {
-  font-size: 13px;
-  color: #999;
-  margin: 0;
+.content {
+flex: 1;
+padding: 24px;
+overflow-y: auto;
+display: flex;
+flex-direction: column;
 }
 
-.activity-status {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
+.module-section {
+height: 100%;
+display: grid;
+place-items: center;
 }
 
-.activity-status.completed {
-  background: #d4edda;
-  color: #155724;
+.health-education-section {
+display: flex;
+flex-direction: column;
+place-items: unset;
+padding: 24px;
+overflow: auto;
+background-color: #fafafa;
 }
 
-.activity-status.upcoming {
-  background: #cce5ff;
-  color: #004085;
+.module-card {
+width: min(560px, 100%);
+background: #fff;
+border-radius: 20px;
+padding: 32px;
+border: 1px solid #e2e8f0;
+text-align: center;
+box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
 }
 
-.health-tips {
-  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-  border-radius: 12px;
-  padding: 30px;
-  margin-bottom: 40px;
+.module-icon {
+width: 64px;
+height: 64px;
+border-radius: 16px;
+display: grid;
+place-items: center;
+margin: 0 auto;
 }
 
-.tip-content {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
+.module-symbol {
+font-size: 30px;
 }
 
-.tip-icon {
-  font-size: 48px;
-  color: #1E88E5;
+.module-card h3 {
+margin: 14px 0 8px;
+font-size: 24px;
 }
 
-.tip-text h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  margin: 0 0 10px;
+.module-card p {
+margin: 0 0 20px;
+color: #64748b;
 }
 
-.tip-text p {
-  font-size: 16px;
-  color: #666;
-  margin: 0;
-  line-height: 1.6;
+.module-icon.blue {
+color: #137fec;
+background: #e7f1fd;
 }
 
-.dashboard-footer {
-  background: white;
-  border-radius: 12px;
-  padding: 30px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  text-align: center;
+.module-icon.cyan {
+color: #0891b2;
+background: #e4fbff;
 }
 
-.footer-content .footer-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #1E88E5;
-  margin: 0 0 10px;
+.module-icon.green {
+color: #059669;
+background: #e8fbf3;
 }
 
-.footer-subtitle {
-  color: #666;
-  margin: 0 0 20px;
-  font-size: 14px;
+.module-icon.purple {
+color: #7c3aed;
+background: #f2eafe;
 }
 
-.footer-links {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-bottom: 20px;
+.module-icon.orange {
+color: #f97316;
+background: #fff0e8;
 }
 
-.footer-link {
-  color: #1E88E5;
-  text-decoration: none;
-  font-size: 14px;
-  transition: color 0.3s;
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+transition: all 0.22s ease;
 }
 
-.footer-link:hover {
-  color: #1565c0;
-  text-decoration: underline;
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+opacity: 0;
+transform: translateY(8px);
 }
 
-.footer-copyright {
-  color: #999;
-  font-size: 12px;
-  margin: 0;
+@media (max-width: 980px) {
+.dashboard-shell {
+flex-direction: column;
 }
 
-@media (max-width: 768px) {
-  .dashboard-header {
-    flex-direction: column;
-    gap: 20px;
-    text-align: center;
-  }
+.sidebar {
+width: 100%;
+padding-bottom: 14px;
+}
 
-  .user-info {
-    flex-direction: column;
-    gap: 10px;
-  }
+.menu-list {
+grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 
-  .health-cards,
-  .services-grid {
-    grid-template-columns: 1fr;
-  }
+.sidebar-user {
+margin-top: 14px;
+}
+}
 
-  .activity-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
+@media (max-width: 680px) {
+.content {
+padding: 16px;
+}
 
-  .activity-status {
-    align-self: flex-end;
-  }
+.menu-list {
+grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 
-  .tip-content {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
+.topbar {
+flex-direction: column;
+align-items: flex-start;
+padding: 12px 16px;
+}
 
-  .footer-links {
-    flex-wrap: wrap;
-  }
+.topbar-actions {
+width: 100%;
+flex-wrap: wrap;
+}
+
+.plain-action,
+.primary-action,
+.logout,
+.outline-btn {
+height: 34px;
+font-size: 12px;
+}
 }
 </style>
