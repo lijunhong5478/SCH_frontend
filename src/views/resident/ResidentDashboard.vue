@@ -28,7 +28,7 @@ type="button"
 </button>
 </nav>
 
-<div class="sidebar-user">
+<div class="sidebar-user" style="cursor: pointer;" @click="openProfileDialog">
 <div class="avatar">
 <img v-if="userAvatarUrl" :src="userAvatarUrl" alt="用户头像" class="avatar-image" />
 <span v-else>{{ userInitial }}</span>
@@ -54,7 +54,7 @@ type="button"
 </div>
 </header>
 
-<main class="content">
+<main class="content" :class="{ 'content-full': activeMenu === 'appointments' }">
 <transition name="fade-slide" mode="out-in">
 <section
 v-if="activeMenu === 'education'"
@@ -62,6 +62,14 @@ key="education"
 class="module-section health-education-section"
 >
 <HealthEducation />
+</section>
+
+<section
+v-else-if="activeMenu === 'appointments'"
+key="appointments"
+class="module-section resident-doctor-section"
+>
+<ResidentDoctorList />
 </section>
 
 <section v-else :key="activeMenu" class="module-section">
@@ -148,11 +156,116 @@ placeholder="请再次输入新密码"
 </form>
 </div>
 </div>
+
+<div
+v-if="showProfileDialog"
+class="password-dialog-mask"
+role="dialog"
+aria-modal="true"
+aria-label="个人信息修改"
+@click.self="closeProfileDialog"
+>
+<div class="password-dialog">
+<div class="dialog-header">
+<h3>个人信息修改</h3>
+<button
+type="button"
+class="icon-close"
+:disabled="profileSubmitting || avatarUploading"
+@click="closeProfileDialog"
+>
+<el-icon class="material-symbols-outlined"><Close /></el-icon>
+</button>
+</div>
+
+<form class="password-form" @submit.prevent="submitProfileUpdate">
+<label class="field">
+<span>用户名</span>
+<input v-model="profileForm.username" type="text" placeholder="请输入用户名" />
+</label>
+
+<label class="field">
+<span>姓名</span>
+<input v-model="profileForm.name" type="text" placeholder="请输入姓名" />
+</label>
+
+<label class="field">
+<span>手机号</span>
+<input v-model="profileForm.phone" type="text" placeholder="请输入手机号" />
+</label>
+
+<label class="field">
+<span>紧急联系方式</span>
+<input v-model="profileForm.contact" type="text" placeholder="请输入紧急联系方式" />
+</label>
+
+<label class="field">
+<span>年龄</span>
+<input v-model.number="profileForm.age" type="number" min="0" max="130" placeholder="请输入年龄" />
+</label>
+
+<label class="field">
+<span>性别</span>
+<select v-model.number="profileForm.gender" class="field-select">
+<option :value="1">男</option>
+<option :value="0">女</option>
+</select>
+</label>
+
+<label class="field">
+<span>头像</span>
+<div class="avatar-upload-wrap">
+<button
+type="button"
+class="avatar-upload-trigger"
+:disabled="avatarUploading || profileLoading || profileSubmitting"
+@click="triggerAvatarUpload"
+>
+<img
+v-if="profileForm.avatarUrl"
+:src="profileForm.avatarUrl"
+alt="头像预览"
+class="profile-avatar-preview"
+/>
+<span v-else>点击上传头像</span>
+</button>
+<input
+ref="avatarFileInputRef"
+type="file"
+accept="image/*"
+class="hidden-file-input"
+@change="handleAvatarFileChange"
+/>
+<p class="avatar-upload-hint">点击头像选择图片，上传后自动更新</p>
+</div>
+</label>
+
+<label class="field">
+<span>地址</span>
+<textarea v-model="profileForm.address" rows="3" class="field-textarea" placeholder="请输入地址" />
+</label>
+
+<p v-if="profileLoading" class="feedback">正在加载个人信息...</p>
+<p v-else-if="profileFeedback" class="feedback" :class="{ success: profileFeedbackSuccess }">
+{{ profileFeedback }}
+</p>
+
+<div class="dialog-actions">
+<button type="button" class="outline-btn" :disabled="profileSubmitting || avatarUploading" @click="closeProfileDialog">
+退出
+</button>
+<button type="submit" class="primary-action" :disabled="profileSubmitting || profileLoading || avatarUploading">
+{{ profileSubmitting ? '保存中...' : '保存修改' }}
+</button>
+</div>
+</form>
+</div>
+</div>
 </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import type { Component } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
@@ -168,7 +281,10 @@ Refresh,
 } from '@element-plus/icons-vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { authApi } from '@/api/auth.api';
+import { getResidentAccount, updateResidentAccount, uploadResidentAvatar } from '@/api/resident.api';
+import type { UpdateProfileDTO } from '@/types/resident.types';
 import HealthEducation from '@/components/admin/HealthEducation.vue';
+import ResidentDoctorList from '@/components/resident/ResidentDoctorList.vue';
 
 type ResidentMenuKey = 'workbench' | 'appointments' | 'health-record' | 'consultation' | 'education';
 
@@ -242,27 +358,37 @@ const router = useRouter();
 
 const validMenuKeys = menuItems.map((item) => item.key);
 
-const activeMenu = computed<ResidentMenuKey>(() => {
+const activeMenu = ref<ResidentMenuKey>('workbench');
+
+function syncActiveMenuFromRoute() {
 const tab = route.query.tab;
 if (typeof tab === 'string' && validMenuKeys.includes(tab as ResidentMenuKey)) {
-return tab as ResidentMenuKey;
+activeMenu.value = tab as ResidentMenuKey;
+return;
 }
-return 'workbench';
-});
+activeMenu.value = 'workbench';
+}
 
-const currentModule = computed<MenuItem>(() => {
+watch(
+() => route.query.tab,
+() => {
+syncActiveMenuFromRoute();
+},
+{ immediate: true },
+);
+
+const currentModule = computed(() => {
 return menuItems.find((item) => item.key === activeMenu.value) ?? menuItems[0]!;
 });
 
-const userName = computed(() => authStore.user?.username || '居民');
-const userAvatarUrl = computed(() => authStore.user?.avatarUrl || '');
+const userName = computed(() => authStore.user?.username || '未登录');
+const userAvatarUrl = computed(() => authStore.user?.avatarUrl);
+const userInitial = computed(() => (userName.value ? userName.value.charAt(0).toUpperCase() : ''));
 
-const userInitial = computed(() => {
-const firstChar = userName.value.trim().charAt(0);
-return firstChar || '民';
+const userRoleText = computed(() => {
+  if (authStore.user?.role === 'resident') return '社区居民';
+  return '未知角色';
 });
-
-const userRoleText = computed(() => '社区居民');
 
 const showPasswordDialog = ref(false);
 const passwordSubmitting = ref(false);
@@ -274,7 +400,27 @@ newPassword: '',
 confirmPassword: '',
 });
 
+const showProfileDialog = ref(false);
+const profileLoading = ref(false);
+const profileSubmitting = ref(false);
+const avatarUploading = ref(false);
+const profileFeedback = ref('');
+const profileFeedbackSuccess = ref(false);
+const avatarFileInputRef = ref<HTMLInputElement | null>(null);
+const profileForm = reactive({
+userId: 0,
+username: '',
+phone: '',
+avatarUrl: '',
+name: '',
+gender: 0,
+age: 0,
+contact: '',
+address: '',
+});
+
 function switchMenu(key: ResidentMenuKey) {
+activeMenu.value = key;
 router.replace({
 path: route.path,
 query: {
@@ -295,6 +441,151 @@ passwordFeedbackSuccess.value = false;
 function openPasswordDialog() {
 resetPasswordState();
 showPasswordDialog.value = true;
+}
+
+function resetProfileState() {
+profileLoading.value = false;
+profileSubmitting.value = false;
+avatarUploading.value = false;
+profileFeedback.value = '';
+profileFeedbackSuccess.value = false;
+profileForm.userId = 0;
+profileForm.username = '';
+profileForm.phone = '';
+profileForm.avatarUrl = '';
+profileForm.name = '';
+profileForm.gender = 0;
+profileForm.age = 0;
+profileForm.contact = '';
+profileForm.address = '';
+}
+
+async function openProfileDialog() {
+const userId = authStore.user?.id;
+if (!userId) {
+profileFeedback.value = '未获取到当前用户信息，请重新登录';
+profileFeedbackSuccess.value = false;
+showProfileDialog.value = true;
+return;
+}
+
+showProfileDialog.value = true;
+profileLoading.value = true;
+profileFeedback.value = '';
+profileFeedbackSuccess.value = false;
+
+try {
+const response = await getResidentAccount(userId);
+const data = response.data;
+profileForm.userId = data.userId;
+profileForm.username = data.username ?? '';
+profileForm.phone = data.phone ?? '';
+profileForm.avatarUrl = data.avatarUrl ?? '';
+profileForm.name = data.name ?? '';
+profileForm.gender = data.gender ?? 0;
+profileForm.age = data.age ?? 0;
+profileForm.contact = data.contact ?? '';
+profileForm.address = data.address ?? '';
+} catch {
+profileFeedback.value = '加载个人信息失败，请稍后重试';
+profileFeedbackSuccess.value = false;
+}
+
+profileLoading.value = false;
+}
+
+function triggerAvatarUpload() {
+if (avatarUploading.value || profileLoading.value || profileSubmitting.value) {
+return;
+}
+avatarFileInputRef.value?.click();
+}
+
+async function handleAvatarFileChange(event: Event) {
+const inputEl = event.target as HTMLInputElement;
+const file = inputEl.files?.[0];
+if (!file) {
+return;
+}
+
+avatarUploading.value = true;
+profileFeedback.value = '';
+profileFeedbackSuccess.value = false;
+
+try {
+const response = await uploadResidentAvatar(file);
+if (response.code === 1 && response.data) {
+profileForm.avatarUrl = response.data;
+profileFeedback.value = '头像上传成功';
+profileFeedbackSuccess.value = true;
+} else {
+profileFeedback.value = response.message || '头像上传失败';
+profileFeedbackSuccess.value = false;
+}
+} catch {
+profileFeedback.value = '头像上传失败，请稍后重试';
+profileFeedbackSuccess.value = false;
+} finally {
+avatarUploading.value = false;
+inputEl.value = '';
+}
+}
+
+function closeProfileDialog() {
+if (profileSubmitting.value || avatarUploading.value) {
+return;
+}
+showProfileDialog.value = false;
+resetProfileState();
+}
+
+async function submitProfileUpdate() {
+if (profileLoading.value) {
+return;
+}
+
+profileFeedback.value = '';
+profileFeedbackSuccess.value = false;
+
+if (!profileForm.username.trim() || !profileForm.name.trim() || !profileForm.phone.trim()) {
+profileFeedback.value = '用户名、姓名和手机号不能为空';
+return;
+}
+
+const payload: UpdateProfileDTO = {
+id: profileForm.userId,
+username: profileForm.username.trim(),
+name: profileForm.name.trim(),
+phone: profileForm.phone.trim(),
+contact: profileForm.contact.trim(),
+avatarUrl: profileForm.avatarUrl.trim(),
+address: profileForm.address.trim(),
+age: Number(profileForm.age) || 0,
+gender: Number(profileForm.gender) || 0,
+};
+
+profileSubmitting.value = true;
+try {
+const response = await updateResidentAccount(payload);
+profileFeedback.value = response.message || '个人信息更新成功';
+profileFeedbackSuccess.value = response.code === 1;
+
+if (profileFeedbackSuccess.value && authStore.user) {
+authStore.setUser({
+...authStore.user,
+username: payload.username,
+avatarUrl: payload.avatarUrl,
+});
+setTimeout(() => {
+closeProfileDialog();
+}, 600);
+}
+} catch {
+profileFeedback.value = '保存失败，请稍后重试';
+profileFeedbackSuccess.value = false;
+} finally {
+profileSubmitting.value = false;
+}
 }
 
 function closePasswordDialog() {
@@ -567,6 +858,9 @@ z-index: 100;
 
 .password-dialog {
 width: min(460px, 100%);
+max-height: calc(100vh - 32px);
+overflow-y: auto;
+overscroll-behavior: contain;
 background: #fff;
 border-radius: 16px;
 border: 1px solid #dbe5f1;
@@ -627,6 +921,72 @@ transition: border-color 0.2s ease;
 border-color: #137fec;
 }
 
+.field-select,
+.field-textarea {
+border-radius: 10px;
+border: 1px solid #cbd5e1;
+padding: 8px 12px;
+font-size: 14px;
+outline: none;
+transition: border-color 0.2s ease;
+background: #fff;
+}
+
+.field-select {
+height: 40px;
+}
+
+.field-textarea {
+resize: vertical;
+}
+
+.field-select:focus,
+.field-textarea:focus {
+border-color: #137fec;
+}
+
+.avatar-upload-wrap {
+display: grid;
+gap: 8px;
+}
+
+.avatar-upload-trigger {
+inline-size: 92px;
+block-size: 92px;
+border-radius: 50%;
+border: 1px dashed #94a3b8;
+background: #f8fafc;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+font-size: 12px;
+color: #475569;
+cursor: pointer;
+overflow: hidden;
+padding: 0;
+}
+
+.avatar-upload-trigger:disabled {
+opacity: 0.6;
+cursor: not-allowed;
+}
+
+.profile-avatar-preview {
+inline-size: 100%;
+block-size: 100%;
+object-fit: cover;
+}
+
+.hidden-file-input {
+display: none;
+}
+
+.avatar-upload-hint {
+margin: 0;
+font-size: 12px;
+color: #64748b;
+}
+
 .feedback {
 margin: 0;
 font-size: 13px;
@@ -658,6 +1018,10 @@ display: flex;
 flex-direction: column;
 }
 
+.content-full {
+	padding: 0;
+}
+
 .module-section {
 height: 100%;
 display: grid;
@@ -671,6 +1035,14 @@ place-items: unset;
 padding: 24px;
 overflow: auto;
 background-color: #fafafa;
+}
+
+.resident-doctor-section {
+display: block;
+padding: 0;
+overflow: visible;
+width: 100%;
+height: 100%;
 }
 
 .module-card {
@@ -764,6 +1136,10 @@ margin-top: 14px;
 @media (max-width: 680px) {
 .content {
 padding: 16px;
+}
+
+.content-full {
+padding: 0;
 }
 
 .menu-list {

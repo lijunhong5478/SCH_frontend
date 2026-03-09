@@ -3,11 +3,18 @@ import { ref, computed } from 'vue';
 import type { User, LoginUserVO, LoginResponse } from '@/types/api.types';
 import { mapRoleTypeToString, ResponseCode } from '@/types/api.types';
 import { authApi } from '@/api/auth.api';
+import { registerResidentAccount } from '@/api/resident.api';
+import type { ResidentRegisterDTO } from '@/types/resident.types';
 
 const TOKEN_STORAGE_KEY = 'token';
 const USER_STORAGE_KEY = 'user';
 
 interface ChangePasswordResult {
+  success: boolean;
+  message: string;
+}
+
+interface RegisterResult {
   success: boolean;
   message: string;
 }
@@ -113,6 +120,35 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function registerResident(payload: ResidentRegisterDTO): Promise<RegisterResult> {
+    try {
+      const response = await registerResidentAccount(payload);
+      if (response.code === ResponseCode.SUCCESS) {
+        return {
+          success: true,
+          message: response.message || '注册成功，请登录！',
+        };
+      }
+
+      if (response.code === 0) {
+        return {
+          success: false,
+          message: '注册失败，用户已存在！',
+        };
+      }
+
+      return {
+        success: false,
+        message: response.message || '注册失败，请检查输入信息',
+      };
+    } catch {
+      return {
+        success: false,
+        message: '注册请求失败，请稍后重试',
+      };
+    }
+  }
+
   return {
     token,
     user,
@@ -127,5 +163,6 @@ export const useAuthStore = defineStore('auth', () => {
     loginSuccess,
     logout,
     changePassword,
+    registerResident,
   };
 });

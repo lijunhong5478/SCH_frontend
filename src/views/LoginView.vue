@@ -8,8 +8,7 @@
         <span class="system-name">社区医疗服务系统</span>
       </div>
       <div class="header-actions">
-        <button class="btn-text">注册账号</button>
-        <button class="btn-ghost">帮助中心</button>
+        <button class="btn-text" type="button" @click="goRegister">注册账号</button>
       </div>
     </header>
 
@@ -244,6 +243,10 @@ const selectLoginType = (type: LoginType) => {
 
 const togglePasswordVisibility = () => {
   showPassword.value = !showPassword.value;
+};
+
+const goRegister = () => {
+  router.push({ name: 'register' });
 };
 
 const handleLogin = async () => {
