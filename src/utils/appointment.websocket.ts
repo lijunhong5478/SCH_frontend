@@ -7,6 +7,9 @@ export interface RealtimeAppointmentStats {
 interface AppointmentSocketBaseMessage {
   type: string;
   data?: unknown;
+  title?: string;
+  queueNo?: string;
+  timestamp?: string;
 }
 
 interface HeartbeatMessage {
@@ -189,7 +192,14 @@ export class AppointmentWebSocket {
           this.emit('statsUpdate', message.data);
           break;
         case 'notification':
-          this.emit('notification', message.data);
+          this.emit(
+            'notification',
+            message.data ?? {
+              title: message.title,
+              queueNo: message.queueNo,
+              timestamp: message.timestamp,
+            }
+          );
           break;
         default:
           break;

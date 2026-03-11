@@ -128,17 +128,94 @@
         />
       </footer>
     </div>
+    <el-dialog
+      v-model="appointmentDialogVisible"
+      title="预约挂号"
+      width="420px"
+      destroy-on-close
+    >
+      <el-form label-position="top" class="appointment-form">
+        <el-form-item label="医生">
+          <el-input :model-value="selectedDoctor?.name || ''" readonly />
+        </el-form-item>
+
+        <el-form-item label="预约日期" required>
+          <el-date-picker
+            v-model="appointmentForm.appointmentDate"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="请选择日期"
+            class="full-width"
+            :disabled-date="disabledDate"
+            :disabled="isQueryDateLocked"
+          />
+        </el-form-item>
+
+        <el-form-item label="预约时间" required>
+          <el-select
+            v-model="appointmentForm.appointmentTime"
+            class="full-width"
+            placeholder="请选择具体时间"
+            :disabled="!appointmentTimeOptions.length || loadingAvailableSlots"
+            :loading="loadingAvailableSlots"
+          >
+            <el-option
+              v-for="time in appointmentTimeOptions"
+              :key="time"
+              :label="time"
+              :value="time"
+            />
+          </el-select>
+          <p class="time-tip">
+            <template v-if="loadingAvailableSlots">正在加载可用时段...</template>
+            <template v-else-if="!appointmentTimeOptions.length">当前日期无可用时段，请更换日期</template>
+            <template v-else-if="isQueryDateLocked">查询时已指定预约日期，当前日期已锁定</template>
+            <template v-else-if="isTodaySelected">今天仅可选择晚于当前时间的时段</template>
+            <template v-else-if="filterForm.timeSlot">当前仅展示 {{ filterForm.timeSlot === 'AM' ? '上午' : '下午' }} 时段</template>
+          </p>
+        </el-form-item>
+
+        <el-form-item label="症状描述（选填）">
+          <el-input
+            v-model="appointmentForm.symptom"
+            type="textarea"
+            :rows="3"
+            maxlength="200"
+            show-word-limit
+            placeholder="请输入主要症状"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <div class="dialog-actions">
+          <el-button @click="appointmentDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="residentBooking" @click="handleConfirmAppointment">
+            {{ residentBooking ? '排号中，请稍等...' : '确认预约' }}
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { ElMessage, ElNotification } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
 import { useAccountStore } from '@/stores/account.store'
+import { useAuthStore } from '@/stores/auth.store'
+import { useAppointmentStore } from '@/stores/appointment.store'
+import { useConsultationStore } from '@/stores/consultation.store'
 import { useResidentDoctorStore } from '@/stores/resident-doctor.store'
 import type { DoctorTitle } from '@/types/account.types'
+import {
+  AFTERNOON_APPOINTMENT_TIMES,
+  MORNING_APPOINTMENT_TIMES,
+  type AppointmentTimeValue,
+} from '@/types/appointment.types'
 import type { DoctorTimeSlot, ResidentDoctor } from '@/types/resident-doctor.types'
 
 interface DoctorFilterForm {
@@ -152,14 +229,34 @@ interface DoctorFilterForm {
 const fallbackAvatar = 'https://cube.elemecdn.com/e/fd/0fc7d20532fdaf769a25683617711png.png'
 
 const accountStore = useAccountStore()
+const authStore = useAuthStore()
 const residentDoctorStore = useResidentDoctorStore()
+const appointmentStore = useAppointmentStore()
+const consultationStore = useConsultationStore()
+const router = useRouter()
 const { departments } = storeToRefs(accountStore)
 const { doctorList, total, loading } = storeToRefs(residentDoctorStore)
+const { residentBooking } = storeToRefs(appointmentStore)
 
 const departmentLoading = ref(false)
 
 const pageNum = ref(1)
 const pageSize = ref(8)
+
+const appointmentDialogVisible = ref(false)
+const selectedDoctor = ref<ResidentDoctor | null>(null)
+const loadingAvailableSlots = ref(false)
+const loadedAvailableSlots = ref(false)
+const availableTimeSlots = ref<DoctorTimeSlot[]>([])
+const appointmentForm = reactive<{
+  appointmentDate: string
+  appointmentTime: AppointmentTimeValue | ''
+  symptom: string
+}>({
+  appointmentDate: '',
+  appointmentTime: '',
+  symptom: '',
+})
 
 const filterForm = reactive<DoctorFilterForm>({})
 
@@ -189,6 +286,131 @@ const disabledDate = (time: Date) => {
   sevenDaysLater.setDate(today.getDate() + 7)
   return time.getTime() < today.getTime() || time.getTime() > sevenDaysLater.getTime()
 }
+
+const getWeekDay = (dateText: string) => {
+  const date = new Date(`${dateText}T00:00:00`)
+  const day = date.getDay()
+  return day === 0 ? 7 : day
+}
+
+const isQueryDateLocked = computed(() => Boolean(filterForm.workDay))
+
+const isTodaySelected = computed(() => {
+  if (!appointmentForm.appointmentDate) {
+    return false
+  }
+
+  const now = new Date()
+  const todayText = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  return appointmentForm.appointmentDate === todayText
+})
+
+const matchSchedules = computed(() => {
+  const doctor = selectedDoctor.value
+  const appointmentDate = appointmentForm.appointmentDate
+  if (!doctor || !appointmentDate) {
+    return []
+  }
+
+  const weekDay = getWeekDay(appointmentDate)
+  return (doctor.doctorSchedules || []).filter((schedule) => schedule.weekDay === weekDay && schedule.status === 1)
+})
+
+const availableSlotsFromSchedule = computed<DoctorTimeSlot[]>(() => {
+  const slots = new Set<DoctorTimeSlot>()
+  matchSchedules.value.forEach((schedule) => {
+    if (schedule.timeSlot === 'AM' || schedule.timeSlot === 'PM') {
+      slots.add(schedule.timeSlot)
+    }
+  })
+  return [...slots]
+})
+
+const allowedTimeSlots = computed<DoctorTimeSlot[]>(() => {
+  // If backend slots are loaded for selected date, use them as the source of truth.
+  let slots = loadedAvailableSlots.value ? availableTimeSlots.value : availableSlotsFromSchedule.value
+
+  const fromSearch = filterForm.timeSlot
+  if (fromSearch) {
+    slots = slots.filter((slot) => slot === fromSearch)
+  }
+
+  return slots
+})
+
+const toMinutes = (timeText: string) => {
+  const [hours, minutes] = timeText.split(':').map((value) => Number(value))
+  return (hours || 0) * 60 + (minutes || 0)
+}
+
+const appointmentTimeOptions = computed<AppointmentTimeValue[]>(() => {
+  if (!appointmentForm.appointmentDate) {
+    return []
+  }
+
+  const options: AppointmentTimeValue[] = []
+  if (allowedTimeSlots.value.includes('AM')) {
+    options.push(...MORNING_APPOINTMENT_TIMES)
+  }
+  if (allowedTimeSlots.value.includes('PM')) {
+    options.push(...AFTERNOON_APPOINTMENT_TIMES)
+  }
+
+  if (!isTodaySelected.value) {
+    return options
+  }
+
+  const now = new Date()
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  return options.filter((time) => toMinutes(time) > nowMinutes)
+})
+
+const refreshAvailableTimeSlots = async (showEmptyTip = true) => {
+  const doctor = selectedDoctor.value
+  const date = appointmentForm.appointmentDate
+  if (!doctor || !date) {
+    availableTimeSlots.value = []
+    loadedAvailableSlots.value = false
+    return
+  }
+
+  loadingAvailableSlots.value = true
+  try {
+    const slots = await appointmentStore.fetchAvailableTimeSlots(date, doctor.userId)
+    availableTimeSlots.value = slots
+    loadedAvailableSlots.value = true
+    if (!slots.length && showEmptyTip) {
+      ElMessage.warning('当前无可用时段，请更换日期')
+    }
+  } catch {
+    availableTimeSlots.value = []
+    loadedAvailableSlots.value = false
+    ElMessage.error('加载可用时段失败，请稍后重试')
+  } finally {
+    loadingAvailableSlots.value = false
+  }
+}
+
+watch(
+  appointmentTimeOptions,
+  (options) => {
+    if (!options.includes(appointmentForm.appointmentTime as AppointmentTimeValue)) {
+      appointmentForm.appointmentTime = ''
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => appointmentForm.appointmentDate,
+  async (date, prevDate) => {
+    if (!appointmentDialogVisible.value || !date || date === prevDate || isQueryDateLocked.value) {
+      return
+    }
+
+    await refreshAvailableTimeSlots(Boolean(prevDate))
+  },
+)
 
 const queryDoctorList = async () => {
   await residentDoctorStore.queryDoctorList(normalizeQueryParams())
@@ -225,12 +447,109 @@ const loadDepartments = async () => {
   }
 }
 
-const handleReserve = (doctor: ResidentDoctor) => {
-  ElMessage.info(`已选择 ${doctor.name}，预约功能待接入`)
+const handleReserve = async (doctor: ResidentDoctor) => {
+  if (!doctor.doctorSchedules?.length) {
+    ElMessage.warning('该医生暂无可预约排班')
+    return
+  }
+
+  selectedDoctor.value = doctor
+  appointmentForm.appointmentDate = filterForm.workDay || ''
+  appointmentForm.appointmentTime = ''
+  appointmentForm.symptom = ''
+  loadedAvailableSlots.value = false
+  availableTimeSlots.value = []
+  appointmentDialogVisible.value = true
+
+  if (appointmentForm.appointmentDate) {
+    await refreshAvailableTimeSlots(true)
+  }
 }
 
-const handleConsult = (doctor: ResidentDoctor) => {
-  ElMessage.info(`已选择 ${doctor.name}，在线问诊功能待接入`)
+const getTimeSlotByTime = (timeText: AppointmentTimeValue): DoctorTimeSlot => {
+  return timeText < '12:00' ? 'AM' : 'PM'
+}
+
+const handleConfirmAppointment = async () => {
+  if (!selectedDoctor.value) {
+    ElMessage.warning('请选择医生后再预约')
+    return
+  }
+  if (!appointmentForm.appointmentDate) {
+    ElMessage.warning('请选择预约日期')
+    return
+  }
+  if (!appointmentForm.appointmentTime) {
+    ElMessage.warning('请选择预约时间')
+    return
+  }
+
+  const residentId = authStore.user?.id
+  if (!residentId) {
+    ElMessage.error('用户信息异常，请重新登录后再试')
+    return
+  }
+
+  const timeSlot = getTimeSlotByTime(appointmentForm.appointmentTime)
+  const matchedSchedule = matchSchedules.value.find((schedule) => schedule.timeSlot === timeSlot)
+  if (!matchedSchedule) {
+    ElMessage.warning('所选日期/时段无有效排班，请重新选择')
+    return
+  }
+
+  const appointed = await appointmentStore.checkIsAppointed({
+    residentId,
+    doctorId: selectedDoctor.value.userId,
+    appointmentDate: appointmentForm.appointmentDate,
+    appointmentTime: appointmentForm.appointmentTime,
+  })
+
+  if (appointed) {
+    ElMessage.warning('该时段您已预约过该医生，请勿重复挂号')
+    return
+  }
+
+  try {
+    const result = await appointmentStore.bookAppointment({
+      residentId,
+      doctorId: selectedDoctor.value.userId,
+      scheduleId: matchedSchedule.id,
+      appointmentDate: appointmentForm.appointmentDate,
+      appointmentTime: appointmentForm.appointmentTime,
+      symptom: appointmentForm.symptom?.trim() || undefined,
+    })
+
+    if (result.success) {
+      appointmentDialogVisible.value = false
+      ElNotification({
+        title: '预约成功',
+        message: `您已预约成功，预约号：${result.queueNo || '-'}`,
+        type: 'success',
+        duration: 4200,
+      })
+      return
+    }
+
+    ElMessage.error(result.message)
+  } catch {
+    ElMessage.error('预约失败，请稍后重试')
+  }
+}
+
+const handleConsult = async (doctor: ResidentDoctor) => {
+  const sessionId = await consultationStore.startConsultation('resident', doctor.userId)
+  if (!sessionId) {
+    ElMessage.error('发起在线问诊失败，请稍后重试')
+    return
+  }
+
+  await router.push({
+    path: '/resident',
+    query: {
+      tab: 'consultation',
+      sessionId: String(sessionId),
+    },
+  })
 }
 
 onMounted(async () => {
@@ -403,6 +722,22 @@ onMounted(async () => {
   align-items: center;
   padding: 10px 14px;
   border-top: 1px solid #edf3fa;
+}
+
+.appointment-form {
+  padding-top: 6px;
+}
+
+.time-tip {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #7487a4;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .total-text {

@@ -24,7 +24,10 @@ type="button"
 <el-icon class="material-symbols-outlined menu-icon">
 <component :is="resolveMenuIcon(item.icon)" />
 </el-icon>
+<span class="menu-label-wrap">
 <span class="menu-label">{{ item.label }}</span>
+<span v-if="item.key === 'consultation' && totalUnreadCount > 0" class="menu-unread-badge">{{ formatUnreadCount(totalUnreadCount) }}</span>
+</span>
 </button>
 </nav>
 
@@ -54,7 +57,7 @@ type="button"
 </div>
 </header>
 
-<main class="content" :class="{ 'content-full': activeMenu === 'appointments' }">
+<main class="content" :class="{ 'content-full': activeMenu === 'appointments' || activeMenu === 'consultation' }">
 <transition name="fade-slide" mode="out-in">
 <section
 v-if="activeMenu === 'education'"
@@ -65,11 +68,27 @@ class="module-section health-education-section"
 </section>
 
 <section
+v-else-if="activeMenu === 'workbench'"
+key="workbench"
+class="module-section resident-workbench-section"
+>
+<ResidentWorkbench />
+</section>
+
+<section
 v-else-if="activeMenu === 'appointments'"
 key="appointments"
 class="module-section resident-doctor-section"
 >
 <ResidentDoctorList />
+</section>
+
+<section
+v-else-if="activeMenu === 'consultation'"
+key="consultation"
+class="module-section consultation-section"
+>
+<ConsultationPanel role="resident" :selected-session-id="selectedSessionId" />
 </section>
 
 <section v-else :key="activeMenu" class="module-section">
@@ -265,7 +284,7 @@ class="hidden-file-input"
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import type { Component } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
@@ -279,12 +298,17 @@ Menu,
 Reading,
 Refresh,
 } from '@element-plus/icons-vue';
+import { ElNotification } from 'element-plus';
 import { useAuthStore } from '@/stores/auth.store';
+import { useConsultationStore } from '@/stores/consultation.store';
 import { authApi } from '@/api/auth.api';
 import { getResidentAccount, updateResidentAccount, uploadResidentAvatar } from '@/api/resident.api';
 import type { UpdateProfileDTO } from '@/types/resident.types';
+import AppointmentWebSocket from '@/utils/appointment.websocket';
 import HealthEducation from '@/components/admin/HealthEducation.vue';
+import ResidentWorkbench from '@/components/resident/ResidentWorkbench.vue';
 import ResidentDoctorList from '@/components/resident/ResidentDoctorList.vue';
+import ConsultationPanel from '@/components/consultation/ConsultationPanel.vue';
 
 type ResidentMenuKey = 'workbench' | 'appointments' | 'health-record' | 'consultation' | 'education';
 
@@ -353,8 +377,41 @@ return menuIconMap[iconName] || Menu;
 }
 
 const authStore = useAuthStore();
+const consultationStore = useConsultationStore();
 const route = useRoute();
 const router = useRouter();
+const residentAppointmentSocket = ref<AppointmentWebSocket | null>(null);
+
+function connectResidentAppointmentSocket() {
+  const userId = authStore.user?.id;
+  if (!userId) {
+    return;
+  }
+
+  residentAppointmentSocket.value?.disconnect();
+  const socket = new AppointmentWebSocket(userId, 'resident', authStore.token);
+  socket.on('notification', (payload) => {
+    if (typeof payload !== 'object' || payload === null) {
+      return;
+    }
+
+    const notification = payload as { title?: string; queueNo?: string; timestamp?: string };
+    const title = notification.title || '预约通知';
+    const queueNo = notification.queueNo || '-';
+    const timestamp = notification.timestamp || '';
+
+    ElNotification({
+      title,
+      message: `排队序号：${queueNo}${timestamp ? `\n时间：${timestamp}` : ''}`,
+      type: 'info',
+      duration: 4200,
+    });
+
+    window.dispatchEvent(new CustomEvent('appointment:resident-refresh'));
+  });
+  socket.connect();
+  residentAppointmentSocket.value = socket;
+}
 
 const validMenuKeys = menuItems.map((item) => item.key);
 
@@ -381,6 +438,20 @@ const currentModule = computed(() => {
 return menuItems.find((item) => item.key === activeMenu.value) ?? menuItems[0]!;
 });
 
+const selectedSessionId = computed<number | null>(() => {
+  const rawSessionId = route.query.sessionId;
+  if (typeof rawSessionId !== 'string' || !rawSessionId.trim()) {
+    return null;
+  }
+
+  const parsed = Number(rawSessionId);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+});
+
 const userName = computed(() => authStore.user?.username || '未登录');
 const userAvatarUrl = computed(() => authStore.user?.avatarUrl);
 const userInitial = computed(() => (userName.value ? userName.value.charAt(0).toUpperCase() : ''));
@@ -389,6 +460,14 @@ const userRoleText = computed(() => {
   if (authStore.user?.role === 'resident') return '社区居民';
   return '未知角色';
 });
+const totalUnreadCount = computed(() => consultationStore.totalUnreadCount);
+
+function formatUnreadCount(count: number) {
+  if (count > 99) {
+    return '99+';
+  }
+  return String(count);
+}
 
 const showPasswordDialog = ref(false);
 const passwordSubmitting = ref(false);
@@ -429,6 +508,19 @@ tab: key,
 },
 });
 }
+
+onMounted(async () => {
+  await consultationStore.refreshUnread('resident');
+  await consultationStore.connectSocket('resident');
+  connectResidentAppointmentSocket();
+});
+
+onUnmounted(() => {
+  consultationStore.disconnectSocket();
+  consultationStore.resetState();
+  residentAppointmentSocket.value?.disconnect();
+  residentAppointmentSocket.value = null;
+});
 
 function resetPasswordState() {
 passwordForm.oldPassword = '';
@@ -733,6 +825,29 @@ box-shadow: 0 8px 20px rgba(19, 127, 236, 0.35);
 .menu-label {
 font-size: 15px;
 font-weight: 600;
+}
+
+.menu-label-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.menu-unread-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  position: absolute;
+  top: -9px;
+  right: -16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .menu-icon {
@@ -1041,6 +1156,20 @@ background-color: #fafafa;
 display: block;
 padding: 0;
 overflow: visible;
+width: 100%;
+height: 100%;
+}
+
+.resident-workbench-section {
+display: block;
+width: 100%;
+height: 100%;
+}
+
+.consultation-section {
+display: block;
+padding: 0;
+overflow: hidden;
 width: 100%;
 height: 100%;
 }
