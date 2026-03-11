@@ -57,7 +57,7 @@ type="button"
 </div>
 </header>
 
-<main class="content" :class="{ 'content-full': activeMenu === 'patients' || activeMenu === 'consultation' || activeMenu === 'appointments' }">
+<main class="content" :class="{ 'content-full': activeMenu === 'patients' || activeMenu === 'consultation' || activeMenu === 'appointments' || activeMenu === 'schedule' }">
 <transition name="fade-slide" mode="out-in">
 <section
 v-if="activeMenu === 'education'"
@@ -89,6 +89,14 @@ key="consultation"
 class="module-section consultation-section"
 >
 <ConsultationPanel role="doctor" />
+</section>
+
+<section
+v-else-if="activeMenu === 'schedule'"
+key="schedule"
+class="module-section doctor-schedule-section"
+>
+<DoctorSchedulePanel />
 </section>
 
 <section v-else :key="activeMenu" class="module-section">
@@ -309,6 +317,7 @@ import AppointmentWebSocket from '@/utils/appointment.websocket';
 import HealthEducation from '@/components/admin/HealthEducation.vue';
 import DoctorAppointmentTable from '@/components/doctor/DoctorAppointmentTable.vue';
 import PatientArchive from '@/components/doctor/PatientArchive.vue';
+import DoctorSchedulePanel from '@/components/doctor/DoctorSchedulePanel.vue';
 import ConsultationPanel from '@/components/consultation/ConsultationPanel.vue';
 
 type DoctorMenuKey = 'workbench' | 'appointments' | 'patients' | 'consultation' | 'education' | 'schedule';
@@ -1165,6 +1174,14 @@ height: 100%;
 display: block;
 padding: 0;
 overflow: hidden;
+width: 100%;
+height: 100%;
+}
+
+.doctor-schedule-section {
+display: block;
+padding: 0;
+overflow: auto;
 width: 100%;
 height: 100%;
 }

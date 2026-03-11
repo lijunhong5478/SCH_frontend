@@ -4,21 +4,31 @@ import {
   cancelResidentAppointmentAPI,
   callAppointmentAPI,
   checkResidentAppointedAPI,
+  createDoctorDiagnosisReportAPI,
+  createDoctorMedicalVisitAPI,
   createResidentAppointmentAPI,
   finishAppointmentAPI,
+  getDoctorDiagnosisByVisitIdAPI,
   getDoctorAppointmentListAPI,
+  getDoctorAppointmentRealNameAPI,
+  getDoctorMedicalVisitByAppointIdAPI,
   getResidentAvailableTimeSlotsAPI,
   getResidentAppointmentListAPI,
   skipAppointmentAPI,
   startConsultAppointmentAPI,
 } from '@/api/appointment.api'
+import { getResidentHealthRecordIdAPI } from '@/api/health-record.api'
 import type {
   Appointment,
   AppointmentQueryDTO,
+  CreateDiagnosisReportDTO,
+  CreateMedicalVisitDTO,
   ExactTimeAppointmentDTO,
+  MedicalVisit,
 } from '@/types/appointment.types'
 import type { DoctorTimeSlot } from '@/types/resident-doctor.types'
 import { ResponseCode } from '@/types/api.types'
+import type { DiagnosisReport } from '@/types/health-record.types'
 
 export const useAppointmentStore = defineStore('appointment', () => {
   const loading = ref(false)
@@ -29,6 +39,11 @@ export const useAppointmentStore = defineStore('appointment', () => {
 
   const doctorAppointments = ref<Appointment[]>([])
   const doctorTotal = ref(0)
+  const residentRealNameMap = ref<Record<number, string>>({})
+  const medicalVisitLoading = ref(false)
+  const medicalVisitDetail = ref<MedicalVisit | null>(null)
+  const diagnosisLoading = ref(false)
+  const diagnosisDetail = ref<DiagnosisReport | null>(null)
 
   const residentBooking = ref(false)
 
@@ -54,10 +69,159 @@ export const useAppointmentStore = defineStore('appointment', () => {
       if (res.code === ResponseCode.SUCCESS && res.data) {
         doctorAppointments.value = res.data.dataList || []
         doctorTotal.value = res.data.total || 0
+        await resolveDoctorAppointmentResidentNames(doctorAppointments.value)
       }
     } finally {
       loading.value = false
     }
+  }
+
+  async function resolveDoctorAppointmentResidentNames(appointments: Appointment[]) {
+    const residentIds = [...new Set(appointments.map((item) => Number(item.residentId)).filter((id) => Number.isFinite(id) && id > 0))]
+    const unresolvedIds = residentIds.filter((id) => !residentRealNameMap.value[id])
+
+    if (!unresolvedIds.length) {
+      return
+    }
+
+    const pairs = await Promise.all(
+      unresolvedIds.map(async (residentId) => {
+        try {
+          const res = await getDoctorAppointmentRealNameAPI(residentId)
+          return [residentId, res.data || `居民${residentId}`] as const
+        } catch {
+          return [residentId, `居民${residentId}`] as const
+        }
+      }),
+    )
+
+    residentRealNameMap.value = {
+      ...residentRealNameMap.value,
+      ...Object.fromEntries(pairs),
+    }
+  }
+
+  function getResidentRealNameById(residentId: number) {
+    return residentRealNameMap.value[residentId] || `居民${residentId}`
+  }
+
+  async function getMedicalVisitByAppointId(appointId: number) {
+    medicalVisitLoading.value = true
+    try {
+      const res = await getDoctorMedicalVisitByAppointIdAPI(appointId)
+      medicalVisitDetail.value = res.data || null
+      return medicalVisitDetail.value
+    } finally {
+      medicalVisitLoading.value = false
+    }
+  }
+
+  async function queryMedicalVisitByAppointIdRaw(appointId: number) {
+    const res = await getDoctorMedicalVisitByAppointIdAPI(appointId)
+    return res.data || null
+  }
+
+  async function createMedicalVisit(payload: CreateMedicalVisitDTO) {
+    medicalVisitLoading.value = true
+    try {
+      const res = await createDoctorMedicalVisitAPI(payload)
+      return res
+    } finally {
+      medicalVisitLoading.value = false
+    }
+  }
+
+  async function ensureMedicalVisitByAppointment(appointment: Appointment, doctorId: number) {
+    medicalVisitLoading.value = true
+    try {
+      const existed = await getMedicalVisitByAppointId(appointment.id)
+      if (existed) {
+        return existed
+      }
+
+      const createPayload: CreateMedicalVisitDTO = {
+        appointId: appointment.id,
+        residentId: appointment.residentId,
+        doctorId,
+        chiefComplaint: '',
+        treatmentAdvice: '',
+      }
+
+      const createRes = await createMedicalVisit(createPayload)
+      if (createRes.code !== ResponseCode.SUCCESS) {
+        return null
+      }
+
+      return await getMedicalVisitByAppointId(appointment.id)
+    } finally {
+      medicalVisitLoading.value = false
+    }
+  }
+
+  function clearMedicalVisitDetail() {
+    medicalVisitDetail.value = null
+  }
+
+  async function getDiagnosisByVisitId(visitId: number) {
+    diagnosisLoading.value = true
+    try {
+      const res = await getDoctorDiagnosisByVisitIdAPI(visitId)
+      diagnosisDetail.value = res.data || null
+      return diagnosisDetail.value
+    } finally {
+      diagnosisLoading.value = false
+    }
+  }
+
+  async function queryDiagnosisByVisitIdRaw(visitId: number) {
+    const res = await getDoctorDiagnosisByVisitIdAPI(visitId)
+    return res.data || null
+  }
+
+  async function createDiagnosisReport(payload: CreateDiagnosisReportDTO) {
+    diagnosisLoading.value = true
+    try {
+      return await createDoctorDiagnosisReportAPI(payload)
+    } finally {
+      diagnosisLoading.value = false
+    }
+  }
+
+  async function createDiagnosisFromVisit(params: {
+    visitId: number
+    residentLoginId: number
+    diagnosisResult: string
+    diagnosisDetail: string
+  }) {
+    const normalizedVisitId = Number(params.visitId)
+    if (!Number.isFinite(normalizedVisitId) || normalizedVisitId <= 0) {
+      return {
+        code: 0,
+        message: '问诊记录ID无效',
+        data: null,
+      }
+    }
+
+    const recordIdRes = await getResidentHealthRecordIdAPI(params.residentLoginId)
+    const healthRecordId = Number(recordIdRes.data)
+    if (!Number.isFinite(healthRecordId) || healthRecordId <= 0) {
+      return {
+        code: 0,
+        message: '未查询到居民健康档案ID',
+        data: null,
+      }
+    }
+
+    return await createDiagnosisReport({
+      visitId: normalizedVisitId,
+      healthRecordId,
+      diagnosisResult: params.diagnosisResult,
+      diagnosisDetail: params.diagnosisDetail,
+    })
+  }
+
+  function clearDiagnosisDetail() {
+    diagnosisDetail.value = null
   }
 
   async function bookAppointment(payload: ExactTimeAppointmentDTO): Promise<{ success: boolean; queueNo?: string; message: string }> {
@@ -192,9 +356,25 @@ export const useAppointmentStore = defineStore('appointment', () => {
     residentTotal,
     doctorAppointments,
     doctorTotal,
+    residentRealNameMap,
+    medicalVisitLoading,
+    medicalVisitDetail,
+    diagnosisLoading,
+    diagnosisDetail,
     isDoctorEmpty,
     fetchResidentAppointments,
     fetchDoctorAppointments,
+    resolveDoctorAppointmentResidentNames,
+    getMedicalVisitByAppointId,
+    queryMedicalVisitByAppointIdRaw,
+    createMedicalVisit,
+    ensureMedicalVisitByAppointment,
+    clearMedicalVisitDetail,
+    getDiagnosisByVisitId,
+    queryDiagnosisByVisitIdRaw,
+    createDiagnosisReport,
+    createDiagnosisFromVisit,
+    clearDiagnosisDetail,
     bookAppointment,
     cancelAppointment,
     checkIsAppointed,
@@ -204,5 +384,6 @@ export const useAppointmentStore = defineStore('appointment', () => {
     startConsultAppointment,
     finishAppointment,
     isRowActionLoading,
+    getResidentRealNameById,
   }
 })

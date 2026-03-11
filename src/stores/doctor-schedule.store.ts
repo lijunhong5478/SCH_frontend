@@ -2,11 +2,14 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { DoctorSchedule, UpdateDoctorScheduleDTO } from '@/types/api.types'
 import { adminApi } from '@/api/admin.api'
+import { getDoctorAccount } from '@/api/doctor.api'
 
 export const useDoctorScheduleStore = defineStore('doctorSchedule', () => {
   const scheduleList = ref<DoctorSchedule[]>([])
   const loading = ref(false)
   const currentDoctorId = ref<number | null>(null)
+  const doctorName = ref('')
+  const departmentName = ref('')
 
   /**
    * 根据医生ID获取排班信息
@@ -14,10 +17,20 @@ export const useDoctorScheduleStore = defineStore('doctorSchedule', () => {
   const getDoctorSchedule = async (doctorId: number) => {
     loading.value = true
     try {
-      const res = await adminApi.getDoctorSchedule(doctorId)
-      scheduleList.value = res.data
+      try {
+        const res = await getDoctorAccount(doctorId)
+        scheduleList.value = res.data?.doctorSchedules || []
+        doctorName.value = res.data?.name || ''
+        departmentName.value = res.data?.departmentName || ''
+      } catch {
+        // Fallback for existing admin schedule editor flow.
+        const res = await adminApi.getDoctorSchedule(doctorId)
+        scheduleList.value = res.data
+        doctorName.value = ''
+        departmentName.value = ''
+      }
       currentDoctorId.value = doctorId
-      return res.data
+      return scheduleList.value
     } finally {
       loading.value = false
     }
@@ -79,6 +92,8 @@ export const useDoctorScheduleStore = defineStore('doctorSchedule', () => {
   const reset = () => {
     scheduleList.value = []
     currentDoctorId.value = null
+    doctorName.value = ''
+    departmentName.value = ''
     loading.value = false
   }
 
@@ -86,6 +101,8 @@ export const useDoctorScheduleStore = defineStore('doctorSchedule', () => {
     scheduleList,
     loading,
     currentDoctorId,
+    doctorName,
+    departmentName,
     getDoctorSchedule,
     updateDoctorSchedule,
     updateSingleSchedule,

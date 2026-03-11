@@ -57,7 +57,7 @@ type="button"
 </div>
 </header>
 
-<main class="content" :class="{ 'content-full': activeMenu === 'appointments' || activeMenu === 'consultation' }">
+<main class="content" :class="{ 'content-full': activeMenu === 'appointments' || activeMenu === 'consultation' || activeMenu === 'health-record' }">
 <transition name="fade-slide" mode="out-in">
 <section
 v-if="activeMenu === 'education'"
@@ -81,6 +81,14 @@ key="appointments"
 class="module-section resident-doctor-section"
 >
 <ResidentDoctorList />
+</section>
+
+<section
+v-else-if="activeMenu === 'health-record'"
+key="health-record"
+class="module-section resident-health-record-section"
+>
+<PatientArchive />
 </section>
 
 <section
@@ -308,6 +316,7 @@ import AppointmentWebSocket from '@/utils/appointment.websocket';
 import HealthEducation from '@/components/admin/HealthEducation.vue';
 import ResidentWorkbench from '@/components/resident/ResidentWorkbench.vue';
 import ResidentDoctorList from '@/components/resident/ResidentDoctorList.vue';
+import PatientArchive from '@/components/doctor/PatientArchive.vue';
 import ConsultationPanel from '@/components/consultation/ConsultationPanel.vue';
 
 type ResidentMenuKey = 'workbench' | 'appointments' | 'health-record' | 'consultation' | 'education';

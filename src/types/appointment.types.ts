@@ -36,6 +36,35 @@ export interface ExactTimeAppointmentDTO {
   symptom?: string
 }
 
+export interface MedicalVisit {
+  id: number
+  appointId: number
+  residentId: number
+  doctorId: number
+  chiefComplaint: string
+  treatmentAdvice: string
+  createTime: string
+  isDeleted?: number
+}
+
+export interface CreateMedicalVisitDTO {
+  appointId: number
+  residentId: number
+  doctorId: number
+  chiefComplaint?: string
+  treatmentAdvice?: string
+  createTime?: string
+  id?: number
+  isDeleted?: number
+}
+
+export interface CreateDiagnosisReportDTO {
+  visitId: number
+  healthRecordId: number
+  diagnosisResult: string
+  diagnosisDetail: string
+}
+
 export const APPOINTMENT_STATUS = {
   BOOKED: 0,
   CANCELLED: 1,

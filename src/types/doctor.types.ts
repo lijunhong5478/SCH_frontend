@@ -1,3 +1,5 @@
+import type { DoctorSchedule } from '@/types/api.types';
+
 export interface DoctorDetail {
   userId: number;
   username: string;
@@ -15,6 +17,7 @@ export interface DoctorDetail {
   title?: number;
   specialty?: string;
   introduction?: string;
+  doctorSchedules?: DoctorSchedule[];
 }
 
 export interface UpdateDoctorProfileDTO {

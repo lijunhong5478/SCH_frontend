@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { getDoctorHealthRecordListAPI } from '@/api/health-record.api'
+import {
+  getDoctorHealthRecordListAPI,
+  getHealthRecordDetailAPI,
+} from '@/api/health-record.api'
 import {
   residentGenderTextMap,
   type DoctorHealthRecord,
@@ -14,9 +17,11 @@ const defaultQuery: Required<Pick<DoctorHealthRecordQuery, 'pageNum' | 'pageSize
 
 export const useHealthRecordStore = defineStore('healthRecord', () => {
   const loading = ref(false)
+  const detailLoading = ref(false)
   const recordList = ref<DoctorHealthRecord[]>([])
   const total = ref(0)
   const query = ref<DoctorHealthRecordQuery>({ ...defaultQuery })
+  const activeRecord = ref<DoctorHealthRecord | null>(null)
 
   const hasData = computed(() => recordList.value.length > 0)
 
@@ -36,8 +41,44 @@ export const useHealthRecordStore = defineStore('healthRecord', () => {
     }
   }
 
+  const queryRecordDetailByLoginId = async (loginUserId?: number | null) => {
+    if (!loginUserId) {
+      activeRecord.value = null
+      return null
+    }
+
+    detailLoading.value = true
+    try {
+      const res = await getHealthRecordDetailAPI(loginUserId)
+      activeRecord.value = res.data || null
+      return activeRecord.value
+    } finally {
+      detailLoading.value = false
+    }
+  }
+
+  const queryResidentRecord = async (loginUserId?: number | null) => {
+    if (!loginUserId) {
+      activeRecord.value = null
+      return null
+    }
+
+    detailLoading.value = true
+    try {
+      const detailRes = await getHealthRecordDetailAPI(loginUserId)
+      activeRecord.value = detailRes.data || null
+      return activeRecord.value
+    } finally {
+      detailLoading.value = false
+    }
+  }
+
   const resetQuery = () => {
     query.value = { ...defaultQuery }
+  }
+
+  const clearActiveRecord = () => {
+    activeRecord.value = null
   }
 
   const getGenderText = (gender?: number) => {
@@ -49,12 +90,17 @@ export const useHealthRecordStore = defineStore('healthRecord', () => {
 
   return {
     loading,
+    detailLoading,
     recordList,
     total,
     query,
+    activeRecord,
     hasData,
     queryRecordList,
+    queryRecordDetailByLoginId,
+    queryResidentRecord,
     resetQuery,
+    clearActiveRecord,
     getGenderText,
   }
 })

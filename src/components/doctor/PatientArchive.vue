@@ -1,136 +1,318 @@
 <template>
   <section class="patient-archive-page">
     <template v-if="activeRecord">
-      <div class="report-toolbar no-export">
-        <button type="button" class="toolbar-btn" @click="backToArchiveList">返回主界面</button>
-        <button type="button" class="toolbar-btn primary" :disabled="exportingPdf" @click="exportPdf">
-          {{ exportingPdf ? '导出中...' : '导出 PDF' }}
-        </button>
-      </div>
-
-      <article ref="reportRef" class="record-report-sheet">
-        <header class="report-header">
-          <div>
-            <h2>{{ activeRecord.title || `${activeRecord.name}健康档案` }}</h2>
-            <p>Resident Health Record</p>
-          </div>
-          <div class="report-meta">
-            <p>档案编号：HR-{{ activeRecord.id }}</p>
-            <p>报告日期：{{ formatDateTime(new Date().toISOString()) }}</p>
-          </div>
+      <article ref="reportRef" class="record-detail-shell">
+        <header class="detail-header">
+          <h2>健康档案 · {{ activeRecord.name }}</h2>
         </header>
 
-        <section class="base-info-card">
-          <img
-            ref="reportAvatarRef"
-            :src="reportAvatarSrc || fallbackAvatar"
-            alt="居民头像"
-            class="report-avatar"
-          />
-          <div class="base-info-grid">
-            <p><span>姓名</span><strong>{{ activeRecord.name }}</strong></p>
-            <p><span>性别</span><strong>{{ healthRecordStore.getGenderText(activeRecord.gender) }}</strong></p>
-            <p><span>年龄</span><strong>{{ activeRecord.age }}岁</strong></p>
-            <p><span>联系电话</span><strong>{{ activeRecord.phone || '-' }}</strong></p>
-            <p><span>身份证号</span><strong>{{ maskIdCard(activeRecord.idCard) }}</strong></p>
-            <p><span>紧急联系方式</span><strong>{{ activeRecord.contact || '-' }}</strong></p>
-            <p class="full-line"><span>家庭住址</span><strong>{{ activeRecord.address || '-' }}</strong></p>
-          </div>
-        </section>
+        <nav class="detail-tabs">
+          <button
+            v-for="item in detailTabs"
+            :key="item.key"
+            type="button"
+            class="detail-tab"
+            :class="{ active: activeDetailTab === item.key }"
+            @click="activeDetailTab = item.key"
+          >
+            {{ item.label }}
+          </button>
+        </nav>
 
-        <section class="report-section">
-          <h3>病史详情</h3>
-          <div class="history-grid">
-            <article>
-              <h4>慢性病史</h4>
-              <p>{{ medicalHistory?.chronicDisease || '暂无记录' }}</p>
-            </article>
-            <article>
-              <h4>既往病史</h4>
-              <p>{{ medicalHistory?.pastMedicalHistory || '暂无记录' }}</p>
-            </article>
-            <article>
-              <h4>过敏史</h4>
-              <p class="highlight">{{ medicalHistory?.allergyHistory || '暂无记录' }}</p>
-            </article>
-            <article>
-              <h4>手术史</h4>
-              <p>{{ medicalHistory?.surgeryHistory || '暂无记录' }}</p>
-            </article>
-            <article class="full-width">
-              <h4>家族史</h4>
-              <p>{{ medicalHistory?.familyHistory || '暂无记录' }}</p>
-            </article>
-          </div>
-        </section>
+        <section class="detail-content-wrap">
+          <section v-if="activeDetailTab === 'basic'" class="basic-detail-card">
+            <div class="basic-top">
+              <img
+                ref="reportAvatarRef"
+                :src="reportAvatarSrc || fallbackAvatar"
+                alt="居民头像"
+                class="detail-avatar"
+              />
 
-        <section class="report-section">
-          <h3>诊断报告</h3>
-          <table class="report-table">
-            <thead>
-              <tr>
-                <th>诊断日期</th>
-                <th>诊断结果</th>
-                <th>详细说明</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in diagnosisRows" :key="item.id">
-                <td>{{ formatDateTime(item.createTime) }}</td>
-                <td>{{ item.diagnosisResult }}</td>
-                <td>{{ item.diagnosisDetail }}</td>
-              </tr>
-              <tr v-if="!diagnosisRows.length">
-                <td colspan="3" class="empty-cell">暂无诊断报告</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
+              <div class="basic-name-wrap">
+                <div class="name-line">
+                  <h3>{{ activeRecord.name }}</h3>
+                  <span class="resident-tag">居民用户</span>
+                </div>
+                <p class="phone-line">{{ activeRecord.phone || '-' }}</p>
+              </div>
+            </div>
 
-        <section class="report-section">
-          <h3>检查报告（最近）</h3>
-          <div class="exam-grid">
-            <article v-for="item in examRows" :key="item.id" class="exam-item">
-              <div class="exam-title">{{ getReportTypeText(item.reportType) }}</div>
-              <div class="exam-time">{{ formatDateTime(item.createTime) }}</div>
-              <p>{{ item.reportContent }}</p>
-            </article>
-            <p v-if="!examRows.length" class="empty-text">暂无检查报告</p>
-          </div>
-        </section>
+            <div class="basic-grid">
+              <div class="basic-item">
+                <span class="item-label">性别</span>
+                <strong>{{ healthRecordStore.getGenderText(activeRecord.gender) }}</strong>
+              </div>
+              <div class="basic-item">
+                <span class="item-label">年龄</span>
+                <strong>{{ activeRecord.age }} 岁</strong>
+              </div>
+              <div class="basic-item">
+                <span class="item-label">身份证号</span>
+                <strong>{{ activeRecord.idCard || '-' }}</strong>
+              </div>
+              <div class="basic-item">
+                <span class="item-label">紧急联系方式</span>
+                <strong class="danger-text">{{ activeRecord.contact || '-' }}</strong>
+              </div>
+              <div class="basic-item full">
+                <span class="item-label">家庭住址</span>
+                <strong>{{ activeRecord.address || '-' }}</strong>
+              </div>
+            </div>
+          </section>
 
-        <section class="report-section">
-          <h3>体检检查趋势</h3>
-          <table class="report-table">
-            <thead>
-              <tr>
-                <th>检查日期</th>
-                <th>身高(cm)</th>
-                <th>体重(kg)</th>
-                <th>血压(mmHg)</th>
-                <th>心率(bpm)</th>
-                <th>空腹血糖(mmol/L)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in physicalRows" :key="item.id">
-                <td>{{ formatDateTime(item.examTime) }}</td>
-                <td>{{ formatNumber(item.height) }}</td>
-                <td>{{ formatNumber(item.weight) }}</td>
-                <td>{{ item.systolicBp }}/{{ item.diastolicBp }}</td>
-                <td>{{ formatNumber(item.heartRate) }}</td>
-                <td>{{ formatNumber(item.bloodSugar) }}</td>
-              </tr>
-              <tr v-if="!physicalRows.length">
-                <td colspan="6" class="empty-cell">暂无体检记录</td>
-              </tr>
-            </tbody>
-          </table>
+          <section v-else-if="activeDetailTab === 'diagnosis'" class="diagnosis-card">
+            <header class="diagnosis-filter-row">
+              <el-date-picker
+                v-model="diagnosisQuery.createDate"
+                type="date"
+                value-format="YYYY-MM-DD"
+                placeholder="按日期筛选"
+                clearable
+                class="diagnosis-date"
+              />
+              <el-button type="primary" :loading="diagnosisLoading" @click="handleDiagnosisQuery">查询</el-button>
+              <el-button :disabled="diagnosisLoading" @click="handleDiagnosisReset">重置</el-button>
+            </header>
+
+            <el-skeleton :loading="diagnosisLoading" animated :count="3">
+              <template #template>
+                <div class="diagnosis-skeleton" />
+              </template>
+
+              <template #default>
+                <el-table :data="diagnosisList" border class="diagnosis-table" empty-text="暂无诊断记录">
+                  <el-table-column prop="diagnosisResult" label="诊断结果" min-width="180" />
+                  <el-table-column prop="diagnosisDetail" label="诊断细节" min-width="360" show-overflow-tooltip />
+                  <el-table-column label="创建时间" min-width="160">
+                    <template #default="scope">
+                      {{ formatDateTime(scope.row.createTime) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="操作" min-width="220" fixed="right">
+                    <template #default="scope">
+                      <div class="diagnosis-actions">
+                        <el-button link type="primary" @click="handleViewVisit(scope.row.visitId)">问诊记录</el-button>
+                        <el-button
+                          v-if="isDoctor && diagnosisPermissionMap[scope.row.id]"
+                          link
+                          type="warning"
+                          :loading="diagnosisSubmitting"
+                          @click="handleEditDiagnosis(scope.row)"
+                        >
+                          修改
+                        </el-button>
+                      </div>
+                    </template>
+                  </el-table-column>
+                </el-table>
+
+                <div class="diagnosis-pagination-row">
+                  <span>共 {{ diagnosisTotal }} 条诊断记录</span>
+                  <el-pagination
+                    background
+                    layout="prev, pager, next"
+                    :total="diagnosisTotal"
+                    :current-page="diagnosisQuery.pageNum"
+                    :page-size="diagnosisQuery.pageSize"
+                    @current-change="handleDiagnosisPageChange"
+                  />
+                </div>
+              </template>
+            </el-skeleton>
+          </section>
+
+          <section v-else-if="activeDetailTab === 'examination'" class="examination-card">
+            <header class="examination-filter-row">
+              <el-date-picker
+                v-model="examinationQuery.createDate"
+                type="date"
+                value-format="YYYY-MM-DD"
+                placeholder="按日期筛选"
+                clearable
+                class="examination-date"
+              />
+              <el-select
+                v-model="examinationQuery.reportType"
+                placeholder="检测类型"
+                clearable
+                class="examination-type"
+              >
+                <el-option
+                  v-for="item in examinationReportTypeOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+              <el-button type="primary" :loading="examinationLoading" @click="handleExaminationQuery">查询</el-button>
+              <el-button :disabled="examinationLoading" @click="handleExaminationReset">重置</el-button>
+              <el-button v-if="isDoctor" type="success" @click="handleOpenExaminationCreate">新增检查记录</el-button>
+            </header>
+
+            <el-skeleton :loading="examinationLoading" animated :count="3">
+              <template #template>
+                <div class="examination-skeleton" />
+              </template>
+
+              <template #default>
+                <el-table :data="examinationList" border class="examination-table" empty-text="暂无检查记录">
+                  <el-table-column label="检测类型" min-width="140">
+                    <template #default="scope">
+                      {{ examinationStore.getReportTypeText(scope.row.reportType) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="reportContent" label="检测内容" min-width="420" show-overflow-tooltip />
+                  <el-table-column label="检测时间" min-width="160">
+                    <template #default="scope">
+                      {{ formatDateTime(scope.row.createTime) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="操作" min-width="100" fixed="right">
+                    <template #default="scope">
+                      <el-button link type="primary" @click="handleViewExaminationDetail(scope.row.id)">查看详情</el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+
+                <div class="examination-pagination-row">
+                  <span>共 {{ examinationTotal }} 条检查记录</span>
+                  <el-pagination
+                    background
+                    layout="prev, pager, next"
+                    :total="examinationTotal"
+                    :current-page="examinationQuery.pageNum"
+                    :page-size="examinationQuery.pageSize"
+                    @current-change="handleExaminationPageChange"
+                  />
+                </div>
+              </template>
+            </el-skeleton>
+          </section>
+
+          <section v-else-if="activeDetailTab === 'physical'" class="examination-card">
+            <header class="examination-filter-row">
+              <el-button type="primary" :loading="physicalLoading" @click="handlePhysicalQuery">查询</el-button>
+              <el-button :disabled="physicalLoading" @click="handlePhysicalReset">重置</el-button>
+              <el-button v-if="isDoctor" type="success" @click="handleOpenPhysicalCreate">新增体检记录</el-button>
+            </header>
+
+            <el-skeleton :loading="physicalLoading" animated :count="3">
+              <template #template>
+                <div class="examination-skeleton" />
+              </template>
+
+              <template #default>
+                <el-table :data="physicalList" border class="examination-table" empty-text="暂无体检记录">
+                  <el-table-column prop="height" label="身高(cm)" min-width="100" />
+                  <el-table-column prop="weight" label="体重(kg)" min-width="100" />
+                  <el-table-column prop="bmi" label="BMI" min-width="100" />
+                  <el-table-column prop="systolicBp" label="收缩压(mmHg)" min-width="130" />
+                  <el-table-column prop="diastolicBp" label="舒张压(mmHg)" min-width="130" />
+                  <el-table-column prop="heartRate" label="心率(bpm)" min-width="100" />
+                  <el-table-column prop="bloodSugar" label="血糖(mmol/L)" min-width="130" />
+                  <el-table-column label="体检时间" min-width="160">
+                    <template #default="scope">
+                      {{ formatDateTime(scope.row.examTime) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="操作" min-width="100" fixed="right">
+                    <template #default="scope">
+                      <el-button link type="primary" @click="handleViewPhysicalDetail(scope.row.id)">查看详情</el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+
+                <div class="examination-pagination-row">
+                  <span>共 {{ physicalTotal }} 条体检记录</span>
+                  <el-pagination
+                    background
+                    layout="prev, pager, next"
+                    :total="physicalTotal"
+                    :current-page="physicalQuery.pageNum"
+                    :page-size="physicalQuery.pageSize"
+                    @current-change="handlePhysicalPageChange"
+                  />
+                </div>
+              </template>
+            </el-skeleton>
+          </section>
+
+          <section v-else-if="activeDetailTab === 'history'" class="examination-card">
+            <header class="examination-filter-row">
+              <el-button v-if="isDoctor" type="success" @click="handleOpenHistoryCreate">新增病史记录</el-button>
+            </header>
+
+            <el-skeleton :loading="historyLoading" animated :count="3">
+              <template #template>
+                <div class="examination-skeleton" />
+              </template>
+
+              <template #default>
+                <el-table :data="historyList" border class="examination-table" empty-text="暂无病史记录">
+                  <el-table-column prop="chronicDisease" label="慢性病史" min-width="180" show-overflow-tooltip />
+                  <el-table-column prop="pastMedicalHistory" label="既往病史" min-width="200" show-overflow-tooltip />
+                  <el-table-column prop="allergyHistory" label="过敏史" min-width="160" show-overflow-tooltip />
+                  <el-table-column prop="familyHistory" label="家庭病史" min-width="180" show-overflow-tooltip />
+                  <el-table-column prop="surgeryHistory" label="手术史" min-width="180" show-overflow-tooltip />
+                  <el-table-column label="更新时间" min-width="160">
+                    <template #default="scope">
+                      {{ formatDateTime(scope.row.updateTime || scope.row.createTime) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="操作" min-width="100" fixed="right">
+                    <template #default="scope">
+                      <el-button link type="primary" @click="handleViewHistoryDetail(scope.row.id)">查看详情</el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+
+                <div class="examination-pagination-row">
+                  <span>共 {{ historyTotal }} 条病史记录</span>
+                  <el-pagination
+                    background
+                    layout="prev, pager, next"
+                    :total="historyTotal"
+                    :current-page="historyQuery.pageNum"
+                    :page-size="historyQuery.pageSize"
+                    @current-change="handleHistoryPageChange"
+                  />
+                </div>
+              </template>
+            </el-skeleton>
+          </section>
+
+          <section v-else class="pending-module-card">
+            <h3>{{ detailTabLabelMap[activeDetailTab] }}</h3>
+            <p>模块待开发</p>
+          </section>
         </section>
       </article>
+
+      <div class="detail-action-bar no-export">
+        <button
+          v-if="isDoctor"
+          type="button"
+          class="action-btn-single"
+          :disabled="detailLoading"
+          @click="backToArchiveList"
+        >
+          返回查询界面
+        </button>
+        <button
+          v-else
+          type="button"
+          class="action-btn-single primary"
+          :disabled="exportingPdf || detailLoading"
+          @click="exportPdf"
+        >
+          {{ exportingPdf ? '导出中...' : '导出报表' }}
+        </button>
+      </div>
     </template>
 
-    <template v-else>
+    <template v-else-if="isDoctor">
       <header class="page-header">
         <h3>患者档案</h3>
         <div class="query-row">
@@ -195,23 +377,299 @@
         />
       </footer>
     </template>
+
+    <template v-else>
+      <el-skeleton :loading="detailLoading" animated>
+        <template #template>
+          <div class="archive-card-skeleton" />
+        </template>
+
+        <template #default>
+          <el-empty description="暂无健康档案" />
+        </template>
+      </el-skeleton>
+    </template>
+
+    <el-dialog
+      v-model="visitDialogVisible"
+      title="问诊记录"
+      width="520px"
+      destroy-on-close
+    >
+      <div v-if="visitDetail" class="visit-detail-panel">
+        <p><span>医生姓名：</span>{{ visitDetail.doctorName || '-' }}</p>
+        <p><span>医生电话：</span>{{ visitDetail.doctorPhone || '-' }}</p>
+        <p><span>科室：</span>{{ visitDetail.doctorDepartment || '-' }}</p>
+        <p><span>居民姓名：</span>{{ visitDetail.residentName || '-' }}</p>
+        <p><span>主诉：</span>{{ visitDetail.chiefComplaint || '-' }}</p>
+        <p><span>治疗建议：</span>{{ visitDetail.treatmentAdvice || '-' }}</p>
+        <p><span>创建时间：</span>{{ formatDateTime(visitDetail.createTime) }}</p>
+      </div>
+      <el-empty v-else description="暂无问诊记录" />
+    </el-dialog>
+
+    <el-dialog
+      v-model="editDialogVisible"
+      title="修改诊断报告"
+      width="520px"
+      destroy-on-close
+    >
+      <el-form label-position="top" class="edit-form">
+        <el-form-item label="诊断结果">
+          <el-input v-model="editForm.diagnosisResult" maxlength="80" show-word-limit />
+        </el-form-item>
+        <el-form-item label="诊断细节">
+          <el-input
+            v-model="editForm.diagnosisDetail"
+            type="textarea"
+            :rows="4"
+            maxlength="400"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="diagnosisSubmitting" @click="handleSubmitDiagnosisEdit">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="examinationDetailDialogVisible"
+      title="检查记录详情"
+      width="560px"
+      destroy-on-close
+    >
+      <el-skeleton :loading="examinationDetailLoading" animated>
+        <template #template>
+          <div class="diagnosis-skeleton" />
+        </template>
+        <template #default>
+          <div v-if="examinationDetail" class="visit-detail-panel">
+            <p><span>检测类型：</span>{{ examinationStore.getReportTypeText(examinationDetail.reportType) }}</p>
+            <p><span>检测内容：</span>{{ examinationDetail.reportContent || '-' }}</p>
+            <p><span>检测时间：</span>{{ formatDateTime(examinationDetail.createTime) }}</p>
+          </div>
+          <el-empty v-else description="暂无检查记录详情" />
+        </template>
+      </el-skeleton>
+    </el-dialog>
+
+    <el-dialog
+      v-model="examinationCreateDialogVisible"
+      title="新增检查记录"
+      width="560px"
+      destroy-on-close
+    >
+      <el-form label-position="top" class="edit-form">
+        <el-form-item label="检测类型">
+          <el-checkbox-group v-model="examinationCreateForm.reportTypes">
+            <el-checkbox
+              v-for="item in examinationReportTypeOptions"
+              :key="item.value"
+              :label="item.value"
+            >
+              {{ item.label }}
+            </el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+        <el-form-item label="检测内容">
+          <el-input
+            v-model="examinationCreateForm.reportContent"
+            type="textarea"
+            :rows="4"
+            maxlength="500"
+            show-word-limit
+            placeholder="请输入检测内容"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="examinationCreateDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="examinationSubmitting" @click="handleSubmitExaminationCreate">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="physicalDetailDialogVisible"
+      title="体检记录详情"
+      width="560px"
+      destroy-on-close
+    >
+      <el-skeleton :loading="physicalDetailLoading" animated>
+        <template #template>
+          <div class="diagnosis-skeleton" />
+        </template>
+        <template #default>
+          <div v-if="physicalDetail" class="visit-detail-panel">
+            <p><span>身高：</span>{{ physicalDetail.height }} cm</p>
+            <p><span>体重：</span>{{ physicalDetail.weight }} kg</p>
+            <p><span>BMI：</span>{{ physicalDetail.bmi }}</p>
+            <p><span>收缩压：</span>{{ physicalDetail.systolicBp }} mmHg</p>
+            <p><span>舒张压：</span>{{ physicalDetail.diastolicBp }} mmHg</p>
+            <p><span>心率：</span>{{ physicalDetail.heartRate }} bpm</p>
+            <p><span>血糖：</span>{{ physicalDetail.bloodSugar }} mmol/L</p>
+            <p><span>体检时间：</span>{{ formatDateTime(physicalDetail.examTime) }}</p>
+          </div>
+          <el-empty v-else description="暂无体检记录详情" />
+        </template>
+      </el-skeleton>
+    </el-dialog>
+
+    <el-dialog
+      v-model="physicalCreateDialogVisible"
+      title="新增体检记录"
+      width="560px"
+      destroy-on-close
+    >
+      <el-form label-position="top" class="edit-form">
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-form-item label="身高(cm)">
+              <el-input-number v-model="physicalCreateForm.height" :min="0" :precision="1" :step="0.1" class="full-width" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="体重(kg)">
+              <el-input-number v-model="physicalCreateForm.weight" :min="0" :precision="1" :step="0.1" class="full-width" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="收缩压(mmHg)">
+              <el-input-number v-model="physicalCreateForm.systolicBp" :min="0" :step="1" class="full-width" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="舒张压(mmHg)">
+              <el-input-number v-model="physicalCreateForm.diastolicBp" :min="0" :step="1" class="full-width" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="心率(bpm)">
+              <el-input-number v-model="physicalCreateForm.heartRate" :min="0" :step="1" class="full-width" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="血糖(mmol/L)">
+              <el-input-number v-model="physicalCreateForm.bloodSugar" :min="0" :precision="1" :step="0.1" class="full-width" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <template #footer>
+        <el-button @click="physicalCreateDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="physicalSubmitting" @click="handleSubmitPhysicalCreate">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="historyDetailDialogVisible"
+      title="病史记录详情"
+      width="560px"
+      destroy-on-close
+    >
+      <el-skeleton :loading="historyDetailLoading" animated>
+        <template #template>
+          <div class="diagnosis-skeleton" />
+        </template>
+        <template #default>
+          <div v-if="historyDetail" class="visit-detail-panel">
+            <p><span>慢性病史：</span>{{ historyDetail.chronicDisease || '-' }}</p>
+            <p><span>既往病史：</span>{{ historyDetail.pastMedicalHistory || '-' }}</p>
+            <p><span>过敏史：</span>{{ historyDetail.allergyHistory || '-' }}</p>
+            <p><span>家庭病史：</span>{{ historyDetail.familyHistory || '-' }}</p>
+            <p><span>手术史：</span>{{ historyDetail.surgeryHistory || '-' }}</p>
+            <p><span>创建时间：</span>{{ formatDateTime(historyDetail.createTime) }}</p>
+            <p><span>更新时间：</span>{{ formatDateTime(historyDetail.updateTime) }}</p>
+          </div>
+          <el-empty v-else description="暂无病史记录详情" />
+        </template>
+      </el-skeleton>
+    </el-dialog>
+
+    <el-dialog
+      v-model="historyCreateDialogVisible"
+      title="新增居民病史记录"
+      width="560px"
+      destroy-on-close
+    >
+      <el-form label-position="top" class="edit-form">
+        <el-form-item label="慢性病史">
+          <el-input
+            v-model="historyCreateForm.chronicDisease"
+            type="textarea"
+            :rows="2"
+            maxlength="300"
+            show-word-limit
+            placeholder="例如：高血压、2型糖尿病"
+          />
+        </el-form-item>
+        <el-form-item label="既往病史">
+          <el-input
+            v-model="historyCreateForm.pastMedicalHistory"
+            type="textarea"
+            :rows="2"
+            maxlength="400"
+            show-word-limit
+            placeholder="请输入既往病史"
+          />
+        </el-form-item>
+        <el-form-item label="过敏史">
+          <el-input
+            v-model="historyCreateForm.allergyHistory"
+            type="textarea"
+            :rows="2"
+            maxlength="300"
+            show-word-limit
+            placeholder="请输入过敏史"
+          />
+        </el-form-item>
+        <el-form-item label="家庭病史（必填）">
+          <el-input
+            v-model="historyCreateForm.familyHistory"
+            type="textarea"
+            :rows="2"
+            maxlength="400"
+            show-word-limit
+            placeholder="请输入家庭病史"
+          />
+        </el-form-item>
+        <el-form-item label="手术史">
+          <el-input
+            v-model="historyCreateForm.surgeryHistory"
+            type="textarea"
+            :rows="2"
+            maxlength="300"
+            show-word-limit
+            placeholder="请输入手术史"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="historyCreateDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="historySubmitting" @click="handleSubmitHistoryCreate">保存</el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
 <script setup lang="ts">
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
+import { useAuthStore } from '@/stores/auth.store'
+import { useDiagnosisReportStore } from '@/stores/diagnosis-report.store'
+import { useExaminationReportStore } from '@/stores/examination-report.store'
 import { useHealthRecordStore } from '@/stores/health-record.store'
-import type {
-  DiagnosisReport,
-  DoctorHealthRecord,
-  ExaminationReport,
-  PhysicalExamRecord,
-  ResidentMedicalHistory,
-} from '@/types/health-record.types'
+import { usePhysicalExamRecordStore } from '@/stores/physical-exam-record.store'
+import { useResidentMedicalHistoryStore } from '@/stores/resident-medical-history.store'
+import type { DiagnosisReport, DoctorHealthRecord } from '@/types/health-record.types'
+import type { DiagnosisRole } from '@/types/diagnosis-report.types'
+import { examinationReportTypeOptions } from '@/types/examination-report.types'
+import type { PhysicalExamRole } from '@/types/physical-exam-record.types'
+import type { ResidentMedicalHistoryRole } from '@/types/resident-medical-history.types'
 
 interface HealthRecordQueryForm {
   realName?: string
@@ -222,27 +680,139 @@ interface HealthRecordQueryForm {
 const fallbackAvatar =
   'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2292%22 height=%2292%22 viewBox=%220 0 92 92%22%3E%3Crect width=%2292%22 height=%2292%22 rx=%228%22 fill=%22%23eef3f9%22/%3E%3Ccircle cx=%2246%22 cy=%2234%22 r=%2216%22 fill=%22%23c8d5e6%22/%3E%3Cpath d=%22M20 75c0-14.4 11.6-26 26-26s26 11.6 26 26%22 fill=%22%23c8d5e6%22/%3E%3C/svg%3E'
 
-const reportTypeTextMap: Record<number, string> = {
-  1: '血常规',
-  2: '心电图',
-  3: '尿常规',
-  4: '血糖',
-  5: '肝功能',
-  6: '血压监测',
+type DetailTabKey = 'basic' | 'diagnosis' | 'examination' | 'physical' | 'history'
+
+const detailTabs: Array<{ key: DetailTabKey; label: string }> = [
+  { key: 'basic', label: '基本信息' },
+  { key: 'diagnosis', label: '诊断记录' },
+  { key: 'examination', label: '检查记录' },
+  { key: 'physical', label: '体检记录' },
+  { key: 'history', label: '居民病史' },
+]
+
+const detailTabLabelMap: Record<DetailTabKey, string> = {
+  basic: '基本信息',
+  diagnosis: '诊断记录',
+  examination: '检查记录',
+  physical: '体检记录',
+  history: '居民病史',
 }
 
 const healthRecordStore = useHealthRecordStore()
-const { recordList, total, loading } = storeToRefs(healthRecordStore)
+const diagnosisStore = useDiagnosisReportStore()
+const examinationStore = useExaminationReportStore()
+const physicalStore = usePhysicalExamRecordStore()
+const historyStore = useResidentMedicalHistoryStore()
+const authStore = useAuthStore()
+const { recordList, total, loading, activeRecord, detailLoading } = storeToRefs(healthRecordStore)
+const {
+  list: diagnosisList,
+  total: diagnosisTotal,
+  loading: diagnosisLoading,
+  submitting: diagnosisSubmitting,
+  visitDetail,
+} = storeToRefs(diagnosisStore)
+const {
+  list: examinationList,
+  total: examinationTotal,
+  loading: examinationLoading,
+  detail: examinationDetail,
+  detailLoading: examinationDetailLoading,
+  submitting: examinationSubmitting,
+} = storeToRefs(examinationStore)
+const {
+  list: physicalList,
+  total: physicalTotal,
+  loading: physicalLoading,
+  detail: physicalDetail,
+  detailLoading: physicalDetailLoading,
+  submitting: physicalSubmitting,
+} = storeToRefs(physicalStore)
+const {
+  list: historyList,
+  total: historyTotal,
+  loading: historyLoading,
+  detail: historyDetail,
+  detailLoading: historyDetailLoading,
+  submitting: historySubmitting,
+} = storeToRefs(historyStore)
+
+const isDoctor = computed(() => authStore.user?.role === 'doctor')
+const isResident = computed(() => authStore.user?.role === 'resident')
 
 const queryForm = reactive<HealthRecordQueryForm>({})
 const pageNum = ref(1)
 const pageSize = ref(10)
 
-const activeRecord = ref<DoctorHealthRecord | null>(null)
 const reportRef = ref<HTMLElement | null>(null)
 const reportAvatarRef = ref<HTMLImageElement | null>(null)
 const reportAvatarSrc = ref(fallbackAvatar)
 const exportingPdf = ref(false)
+const activeDetailTab = ref<DetailTabKey>('basic')
+const visitDialogVisible = ref(false)
+const editDialogVisible = ref(false)
+const examinationDetailDialogVisible = ref(false)
+const examinationCreateDialogVisible = ref(false)
+const physicalDetailDialogVisible = ref(false)
+const physicalCreateDialogVisible = ref(false)
+const historyDetailDialogVisible = ref(false)
+const historyCreateDialogVisible = ref(false)
+const editingSourceDiagnosis = ref<DiagnosisReport | null>(null)
+const diagnosisPermissionMap = ref<Record<number, boolean>>({})
+
+const diagnosisQuery = reactive({
+  createDate: '',
+  pageNum: 1,
+  pageSize: 10,
+})
+
+const examinationQuery = reactive({
+  createDate: '',
+  reportType: undefined as number | undefined,
+  pageNum: 1,
+  pageSize: 10,
+})
+
+const physicalQuery = reactive({
+  pageNum: 1,
+  pageSize: 10,
+})
+
+const historyQuery = reactive({
+  pageNum: 1,
+  pageSize: 10,
+})
+
+const editForm = reactive({
+  diagnosisResult: '',
+  diagnosisDetail: '',
+})
+
+const examinationCreateForm = reactive({
+  reportTypes: [] as number[],
+  reportContent: '',
+})
+
+const physicalCreateForm = reactive({
+  height: 0,
+  weight: 0,
+  systolicBp: 0,
+  diastolicBp: 0,
+  heartRate: 0,
+  bloodSugar: 0,
+})
+
+const historyCreateForm = reactive({
+  chronicDisease: '',
+  pastMedicalHistory: '',
+  allergyHistory: '',
+  familyHistory: '',
+  surgeryHistory: '',
+})
+
+const diagnosisRole = computed<DiagnosisRole>(() => (isDoctor.value ? 'doctor' : 'resident'))
+const physicalRole = computed<PhysicalExamRole>(() => (isDoctor.value ? 'doctor' : 'resident'))
+const historyRole = computed<ResidentMedicalHistoryRole>(() => (isDoctor.value ? 'doctor' : 'resident'))
 
 const pageStart = computed(() => {
   if (!total.value) {
@@ -256,28 +826,6 @@ const pageEnd = computed(() => {
     return 0
   }
   return Math.min(pageNum.value * pageSize.value, total.value)
-})
-
-const medicalHistory = computed<ResidentMedicalHistory | null>(() => {
-  return activeRecord.value?.residentMedicalHistories?.[0] ?? null
-})
-
-const diagnosisRows = computed<DiagnosisReport[]>(() => {
-  return [...(activeRecord.value?.diagnosisReports || [])]
-    .sort((a, b) => new Date(b.createTime).getTime() - new Date(a.createTime).getTime())
-    .slice(0, 8)
-})
-
-const examRows = computed<ExaminationReport[]>(() => {
-  return [...(activeRecord.value?.examinationReports || [])]
-    .sort((a, b) => new Date(b.createTime).getTime() - new Date(a.createTime).getTime())
-    .slice(0, 6)
-})
-
-const physicalRows = computed<PhysicalExamRecord[]>(() => {
-  return [...(activeRecord.value?.physicalExamRecords || [])]
-    .sort((a, b) => new Date(b.examTime).getTime() - new Date(a.examTime).getTime())
-    .slice(0, 10)
 })
 
 const normalizeQuery = () => {
@@ -313,22 +861,467 @@ const handlePageNumChange = async (value: number) => {
   await queryRecordList()
 }
 
-const handleDetail = (record: DoctorHealthRecord) => {
-  activeRecord.value = record
-  reportAvatarSrc.value = record.avatarUrl || fallbackAvatar
+const openRecordDetail = async (loginUserId?: number) => {
+  const detail = await healthRecordStore.queryRecordDetailByLoginId(loginUserId)
+  if (!detail) {
+    ElMessage.warning('未查询到健康档案详情')
+    return null
+  }
+
+  activeDetailTab.value = 'basic'
+  reportAvatarSrc.value = detail.avatarUrl || fallbackAvatar
+  return detail
 }
 
-const handleExportReport = (record: DoctorHealthRecord) => {
-  activeRecord.value = record
-  reportAvatarSrc.value = record.avatarUrl || fallbackAvatar
+const queryDiagnosisList = async () => {
+  if (!activeRecord.value?.id) {
+    return
+  }
+
+  const rows = await diagnosisStore.queryList(diagnosisRole.value, {
+    createDate: diagnosisQuery.createDate || undefined,
+    healthRecordId: activeRecord.value.id,
+    pageNum: diagnosisQuery.pageNum,
+    pageSize: diagnosisQuery.pageSize,
+  })
+
+  if (!isDoctor.value) {
+    diagnosisPermissionMap.value = {}
+    return
+  }
+
+  const doctorId = authStore.user?.id
+  if (!doctorId || !rows.length) {
+    diagnosisPermissionMap.value = {}
+    return
+  }
+
+  const permissionPairs = await Promise.all(
+    rows.map(async (item) => {
+      try {
+        const canEdit = await diagnosisStore.checkDoctorPermission(item.id, doctorId)
+        return [item.id, canEdit] as const
+      } catch {
+        return [item.id, false] as const
+      }
+    }),
+  )
+
+  diagnosisPermissionMap.value = Object.fromEntries(permissionPairs)
+}
+
+const handleDiagnosisQuery = async () => {
+  diagnosisQuery.pageNum = 1
+  await queryDiagnosisList()
+}
+
+const handleDiagnosisReset = async () => {
+  diagnosisQuery.createDate = ''
+  diagnosisQuery.pageNum = 1
+  await queryDiagnosisList()
+}
+
+const handleDiagnosisPageChange = async (pageNum: number) => {
+  diagnosisQuery.pageNum = pageNum
+  await queryDiagnosisList()
+}
+
+const queryExaminationList = async () => {
+  if (!activeRecord.value?.id) {
+    return
+  }
+
+  await examinationStore.queryList({
+    createDate: examinationQuery.createDate || undefined,
+    reportType: examinationQuery.reportType,
+    healthRecordId: activeRecord.value.id,
+    pageNum: examinationQuery.pageNum,
+    pageSize: examinationQuery.pageSize,
+  })
+}
+
+const handleExaminationQuery = async () => {
+  examinationQuery.pageNum = 1
+  await queryExaminationList()
+}
+
+const handleExaminationReset = async () => {
+  examinationQuery.createDate = ''
+  examinationQuery.reportType = undefined
+  examinationQuery.pageNum = 1
+  await queryExaminationList()
+}
+
+const handleExaminationPageChange = async (pageNum: number) => {
+  examinationQuery.pageNum = pageNum
+  await queryExaminationList()
+}
+
+const queryPhysicalList = async () => {
+  if (!activeRecord.value?.id) {
+    return
+  }
+
+  await physicalStore.queryList(physicalRole.value, {
+    recordId: activeRecord.value.id,
+    pageNum: physicalQuery.pageNum,
+    pageSize: physicalQuery.pageSize,
+  })
+}
+
+const handlePhysicalQuery = async () => {
+  physicalQuery.pageNum = 1
+  await queryPhysicalList()
+}
+
+const handlePhysicalReset = async () => {
+  physicalQuery.pageNum = 1
+  await queryPhysicalList()
+}
+
+const handlePhysicalPageChange = async (pageNum: number) => {
+  physicalQuery.pageNum = pageNum
+  await queryPhysicalList()
+}
+
+const queryHistoryList = async () => {
+  if (!activeRecord.value?.id) {
+    return
+  }
+
+  await historyStore.queryList(historyRole.value, {
+    recordId: activeRecord.value.id,
+    pageNum: historyQuery.pageNum,
+    pageSize: historyQuery.pageSize,
+  })
+}
+
+const handleHistoryPageChange = async (pageNum: number) => {
+  historyQuery.pageNum = pageNum
+  await queryHistoryList()
+}
+
+const handleViewHistoryDetail = async (id: number) => {
+  if (!id) {
+    ElMessage.warning('病史记录ID无效')
+    return
+  }
+
+  try {
+    const detail = await historyStore.queryDetailById(historyRole.value, id)
+    if (!detail) {
+      ElMessage.warning('未查询到病史记录详情')
+      return
+    }
+    historyDetailDialogVisible.value = true
+  } catch {
+    ElMessage.error('查询病史记录详情失败，请稍后重试')
+  }
+}
+
+const handleOpenHistoryCreate = () => {
+  if (!isDoctor.value) {
+    ElMessage.warning('当前角色无新增病史权限')
+    return
+  }
+
+  historyCreateForm.chronicDisease = ''
+  historyCreateForm.pastMedicalHistory = ''
+  historyCreateForm.allergyHistory = ''
+  historyCreateForm.familyHistory = ''
+  historyCreateForm.surgeryHistory = ''
+  historyCreateDialogVisible.value = true
+}
+
+const handleSubmitHistoryCreate = async () => {
+  if (!isDoctor.value || !activeRecord.value?.id) {
+    ElMessage.warning('当前状态无法新增病史记录')
+    return
+  }
+
+  const payload = {
+    recordId: activeRecord.value.id,
+    chronicDisease: historyCreateForm.chronicDisease.trim() || undefined,
+    pastMedicalHistory: historyCreateForm.pastMedicalHistory.trim() || undefined,
+    allergyHistory: historyCreateForm.allergyHistory.trim() || undefined,
+    familyHistory: historyCreateForm.familyHistory.trim() || undefined,
+    surgeryHistory: historyCreateForm.surgeryHistory.trim() || undefined,
+  }
+
+  if (!payload.familyHistory) {
+    ElMessage.warning('请填写家庭病史')
+    return
+  }
+
+  try {
+    const res = await historyStore.saveRecord(payload)
+    if (res.code === 1) {
+      ElMessage.success(res.message || '病史记录保存成功')
+      historyCreateDialogVisible.value = false
+      historyQuery.pageNum = 1
+      await queryHistoryList()
+      return
+    }
+    ElMessage.error(res.message || '病史记录保存失败')
+  } catch {
+    ElMessage.error('病史记录保存失败，请稍后重试')
+  }
+}
+
+const handleViewPhysicalDetail = async (id: number) => {
+  if (!id) {
+    ElMessage.warning('体检记录ID无效')
+    return
+  }
+
+  try {
+    const detail = await physicalStore.queryDetailById(physicalRole.value, id)
+    if (!detail) {
+      ElMessage.warning('未查询到体检记录详情')
+      return
+    }
+    physicalDetailDialogVisible.value = true
+  } catch {
+    ElMessage.error('查询体检记录详情失败，请稍后重试')
+  }
+}
+
+const handleOpenPhysicalCreate = () => {
+  if (!isDoctor.value) {
+    ElMessage.warning('当前角色无新增体检记录权限')
+    return
+  }
+
+  physicalCreateForm.height = 0
+  physicalCreateForm.weight = 0
+  physicalCreateForm.systolicBp = 0
+  physicalCreateForm.diastolicBp = 0
+  physicalCreateForm.heartRate = 0
+  physicalCreateForm.bloodSugar = 0
+  physicalCreateDialogVisible.value = true
+}
+
+const toPositiveNumber = (value: number) => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) {
+    return 0
+  }
+  return num
+}
+
+const calcBmi = (heightCm: number, weightKg: number) => {
+  if (heightCm <= 0 || weightKg <= 0) {
+    return 0
+  }
+  const heightMeter = heightCm / 100
+  return Number((weightKg / (heightMeter * heightMeter)).toFixed(2))
+}
+
+const handleSubmitPhysicalCreate = async () => {
+  if (!isDoctor.value || !activeRecord.value?.id) {
+    ElMessage.warning('当前状态无法新增体检记录')
+    return
+  }
+
+  const height = toPositiveNumber(physicalCreateForm.height)
+  const weight = toPositiveNumber(physicalCreateForm.weight)
+  const systolicBp = Math.trunc(toPositiveNumber(physicalCreateForm.systolicBp))
+  const diastolicBp = Math.trunc(toPositiveNumber(physicalCreateForm.diastolicBp))
+  const heartRate = Math.trunc(toPositiveNumber(physicalCreateForm.heartRate))
+  const bloodSugar = toPositiveNumber(physicalCreateForm.bloodSugar)
+
+  if (height <= 0 || weight <= 0) {
+    ElMessage.warning('请填写有效的身高和体重')
+    return
+  }
+
+  if (systolicBp <= 0 || diastolicBp <= 0 || heartRate <= 0 || bloodSugar <= 0) {
+    ElMessage.warning('请填写完整且有效的生命体征指标')
+    return
+  }
+
+  const payload = {
+    recordId: activeRecord.value.id,
+    height,
+    weight,
+    systolicBp,
+    diastolicBp,
+    heartRate,
+    bloodSugar,
+    bmi: calcBmi(height, weight),
+  }
+
+  try {
+    const res = await physicalStore.saveRecord(payload)
+    if (res.code === 1) {
+      ElMessage.success(res.message || '体检记录保存成功')
+      physicalCreateDialogVisible.value = false
+      physicalQuery.pageNum = 1
+      await queryPhysicalList()
+      return
+    }
+    ElMessage.error(res.message || '体检记录保存失败')
+  } catch {
+    ElMessage.error('体检记录保存失败，请稍后重试')
+  }
+}
+
+const handleViewExaminationDetail = async (id: number) => {
+  if (!id) {
+    ElMessage.warning('检查记录ID无效')
+    return
+  }
+
+  try {
+    const detail = await examinationStore.queryDetailById(id)
+    if (!detail) {
+      ElMessage.warning('未查询到检查记录详情')
+      return
+    }
+    examinationDetailDialogVisible.value = true
+  } catch {
+    ElMessage.error('查询检查记录详情失败，请稍后重试')
+  }
+}
+
+const handleOpenExaminationCreate = () => {
+  if (!isDoctor.value) {
+    ElMessage.warning('当前角色无新增检查记录权限')
+    return
+  }
+
+  examinationCreateForm.reportTypes = []
+  examinationCreateForm.reportContent = ''
+  examinationCreateDialogVisible.value = true
+}
+
+const handleSubmitExaminationCreate = async () => {
+  if (!isDoctor.value || !activeRecord.value?.id) {
+    ElMessage.warning('当前状态无法新增检查记录')
+    return
+  }
+
+  const reportTypes = examinationCreateForm.reportTypes
+    .map((item) => Number(item))
+    .filter((item) => Number.isFinite(item) && item > 0)
+  if (!reportTypes.length) {
+    ElMessage.warning('请至少选择一个检测类型')
+    return
+  }
+
+  const reportContent = examinationCreateForm.reportContent.trim()
+  if (!reportContent) {
+    ElMessage.warning('请填写检测内容')
+    return
+  }
+
+  const payload = reportTypes.map((reportType) => ({
+    recordId: activeRecord.value!.id,
+    reportType,
+    reportContent,
+  }))
+
+  try {
+    const res = await examinationStore.saveReports(payload)
+    if (res.code === 1) {
+      ElMessage.success(res.message || '检查记录保存成功')
+      examinationCreateDialogVisible.value = false
+      examinationQuery.pageNum = 1
+      await queryExaminationList()
+      return
+    }
+    ElMessage.error(res.message || '检查记录保存失败')
+  } catch {
+    ElMessage.error('检查记录保存失败，请稍后重试')
+  }
+}
+
+const handleViewVisit = async (visitId: number) => {
+  if (!visitId) {
+    ElMessage.warning('无有效问诊记录ID')
+    return
+  }
+
+  try {
+    await diagnosisStore.queryVisitDetail(diagnosisRole.value, visitId)
+    visitDialogVisible.value = true
+  } catch {
+    ElMessage.error('查询问诊记录失败，请稍后重试')
+  }
+}
+
+const handleEditDiagnosis = async (row: DiagnosisReport) => {
+  if (!diagnosisPermissionMap.value[row.id]) {
+    ElMessage.warning('当前诊断记录不在可修改权限范围内')
+    return
+  }
+
+  editingSourceDiagnosis.value = row
+  editForm.diagnosisResult = row.diagnosisResult || ''
+  editForm.diagnosisDetail = row.diagnosisDetail || ''
+  editDialogVisible.value = true
+}
+
+const handleSubmitDiagnosisEdit = async () => {
+  const source = editingSourceDiagnosis.value
+  if (!source || !activeRecord.value) {
+    ElMessage.warning('未定位到可修改的诊断记录')
+    return
+  }
+
+  const diagnosisId = Number(source.id)
+  if (!Number.isFinite(diagnosisId) || diagnosisId <= 0) {
+    ElMessage.warning('诊断记录ID无效，无法提交修改')
+    return
+  }
+
+  const diagnosisResult = editForm.diagnosisResult.trim()
+  const diagnosisDetail = editForm.diagnosisDetail.trim()
+  if (!diagnosisResult || !diagnosisDetail) {
+    ElMessage.warning('请填写完整的诊断结果和诊断细节')
+    return
+  }
+
+  try {
+    const res = await diagnosisStore.updateDoctorDiagnosis({
+      id: diagnosisId,
+      diagnosisResult,
+      diagnosisDetail,
+    })
+
+    if (res.code === 1) {
+      ElMessage.success(res.message || '诊断报告修改成功')
+      editDialogVisible.value = false
+      await queryDiagnosisList()
+      return
+    }
+
+    ElMessage.error(res.message || '诊断报告修改失败')
+  } catch {
+    ElMessage.error('诊断报告修改失败，请稍后重试')
+  }
+}
+
+const handleDetail = async (record: DoctorHealthRecord) => {
+  await openRecordDetail(record.residentId)
+}
+
+const handleExportReport = async (record: DoctorHealthRecord) => {
+  const detail = await openRecordDetail(record.residentId)
+  if (!detail) {
+    return
+  }
+  await nextTick()
+  await exportPdf()
 }
 
 const backToArchiveList = () => {
-  activeRecord.value = null
-}
-
-const getReportTypeText = (reportType: number) => {
-  return reportTypeTextMap[reportType] || `检查类型${reportType}`
+  activeDetailTab.value = 'basic'
+  diagnosisStore.clearVisitDetail()
+  examinationStore.clearDetail()
+  physicalStore.clearDetail()
+  historyStore.clearDetail()
+  healthRecordStore.clearActiveRecord()
 }
 
 const formatDateTime = (value?: string) => {
@@ -342,24 +1335,9 @@ const formatDateTime = (value?: string) => {
   const yyyy = date.getFullYear()
   const mm = String(date.getMonth() + 1).padStart(2, '0')
   const dd = String(date.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
-
-const formatNumber = (value: number | string | undefined) => {
-  if (value === undefined || value === null || value === '') {
-    return '-'
-  }
-  return String(value)
-}
-
-const maskIdCard = (idCard?: string) => {
-  if (!idCard) {
-    return '-'
-  }
-  if (idCard.length <= 8) {
-    return idCard
-  }
-  return `${idCard.slice(0, 4)}**********${idCard.slice(-4)}`
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mi = String(date.getMinutes()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
 }
 
 const buildProxyImageUrl = (url: string) => {
@@ -453,48 +1431,396 @@ const exportPdf = async () => {
 }
 
 onMounted(async () => {
+  if (isResident.value) {
+    const loginUserId = authStore.user?.id
+    if (!loginUserId) {
+      ElMessage.warning('未获取到居民身份信息，请重新登录')
+      return
+    }
+
+    const detail = await healthRecordStore.queryResidentRecord(loginUserId)
+    if (!detail) {
+      ElMessage.info('暂无健康档案信息')
+      return
+    }
+
+    activeDetailTab.value = 'basic'
+    reportAvatarSrc.value = detail.avatarUrl || fallbackAvatar
+    return
+  }
+
   await queryRecordList()
 })
+
+watch(
+  () => activeDetailTab.value,
+  async (tab) => {
+    if (!activeRecord.value?.id) {
+      return
+    }
+
+    if (tab === 'diagnosis') {
+      diagnosisQuery.pageNum = 1
+      await queryDiagnosisList()
+      return
+    }
+
+    if (tab === 'examination') {
+      examinationQuery.pageNum = 1
+      await queryExaminationList()
+      return
+    }
+
+    if (tab === 'physical') {
+      physicalQuery.pageNum = 1
+      await queryPhysicalList()
+      return
+    }
+
+    if (tab === 'history') {
+      historyQuery.pageNum = 1
+      await queryHistoryList()
+    }
+  },
+)
 </script>
 
 <style scoped>
 .patient-archive-page {
   width: 100%;
   min-height: 100%;
-  padding: 18px 24px 14px;
+  padding: 8px 16px 6px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
   background: #f4f7fc;
 }
 
-.report-toolbar {
+.record-detail-shell {
+  width: 100%;
+  margin: 0;
+  background: #f6f8fb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.detail-header {
+  padding: 4px 6px 2px;
+}
+
+.detail-header h2 {
+  margin: 0;
+  color: #1f2f47;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.detail-tabs {
   display: flex;
-  justify-content: flex-end;
+  gap: 26px;
+  padding: 0 10px;
+  border-bottom: 1px solid #e3e9f3;
+  background: #fff;
+}
+
+.detail-tab {
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: #5f6f86;
+  font-size: 14px;
+  cursor: pointer;
+  position: relative;
+}
+
+.detail-tab.active {
+  color: #2d7bff;
+  font-weight: 700;
+}
+
+.detail-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: #2d7bff;
+}
+
+.detail-content-wrap {
+  padding: 10px;
+}
+
+.basic-detail-card {
+  background: #fff;
+  border: 1px solid #e5ebf3;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.basic-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: #f1f5fb;
+}
+
+.detail-avatar {
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #dbe4f2;
+  background: #fff;
+}
+
+.basic-name-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.basic-name-wrap .name-line {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 
-.toolbar-btn {
-  height: 38px;
-  border: 1px solid #d0deef;
-  border-radius: 20px;
+.basic-name-wrap h3 {
+  margin: 0;
+  font-size: 38px;
+  color: #22324a;
+  line-height: 1;
+}
+
+.resident-tag {
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #e8f0ff;
+  color: #4f79d8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.phone-line {
+  margin: 0;
+  font-size: 14px;
+  color: #6780a2;
+}
+
+.basic-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 24px;
+  padding: 16px;
+}
+
+.basic-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.basic-item.full {
+  grid-column: 1 / -1;
+  border: 1px solid #edf1f6;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafcff;
+}
+
+.item-label {
+  color: #8a98ad;
+  font-size: 12px;
+}
+
+.basic-item strong {
+  color: #2e405c;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.basic-item .danger-text {
+  color: #cf3f3f;
+}
+
+.pending-module-card {
+  min-height: 260px;
+  border: 1px dashed #cad7ea;
+  border-radius: 10px;
+  background: #fff;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: #6b7d95;
+}
+
+.pending-module-card h3 {
+  margin: 0;
+  color: #2a3e5d;
+}
+
+.pending-module-card p {
+  margin: 6px 0 0;
+}
+
+.diagnosis-card {
+  background: #fff;
+  border: 1px solid #e3eaf4;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.examination-card {
+  background: #fff;
+  border: 1px solid #e3eaf4;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.diagnosis-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.examination-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.diagnosis-date {
+  width: 180px;
+}
+
+.examination-date {
+  width: 180px;
+}
+
+.examination-type {
+  width: 170px;
+}
+
+.examination-type-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.diagnosis-skeleton {
+  height: 220px;
+  border-radius: 10px;
+  background: #eff3f9;
+}
+
+.examination-skeleton {
+  height: 220px;
+  border-radius: 10px;
+  background: #eff3f9;
+}
+
+.diagnosis-table {
+  width: 100%;
+}
+
+.examination-table {
+  width: 100%;
+}
+
+.diagnosis-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.diagnosis-pagination-row {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #70829a;
+  font-size: 13px;
+}
+
+.examination-pagination-row {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #70829a;
+  font-size: 13px;
+}
+
+.visit-detail-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.visit-detail-panel p {
+  margin: 0;
+  color: #334b68;
+  line-height: 1.55;
+}
+
+.visit-detail-panel span {
+  color: #7a8ea9;
+}
+
+.edit-form {
+  padding-top: 4px;
+}
+
+.edit-form .full-width {
+  width: 100%;
+}
+
+.detail-action-bar {
+  position: fixed;
+  right: 24px;
+  bottom: 20px;
+}
+
+.action-btn-single {
+  height: 40px;
+  border: 1px solid #d5deec;
+  border-radius: 8px;
   padding: 0 16px;
-  background: #ffffff;
-  color: #274566;
+  background: #fff;
+  color: #37506f;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 6px 16px rgba(18, 33, 56, 0.12);
 }
 
-.toolbar-btn.primary {
-  border: 0;
+.action-btn-single.primary {
+  border: none;
   background: #2d7bff;
-  color: #ffffff;
+  color: #fff;
 }
 
-.toolbar-btn:disabled {
+.action-btn-single:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.record-report-sheet {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #dce4ef;
+  border-radius: 6px;
+  padding: 28px 34px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
 }
 
 .record-report-sheet {
@@ -856,7 +2182,38 @@ onMounted(async () => {
 
 @media (max-width: 960px) {
   .patient-archive-page {
-    padding: 16px;
+    padding: 8px;
+  }
+
+  .detail-header h2 {
+    font-size: 24px;
+  }
+
+  .detail-tabs {
+    gap: 14px;
+    overflow-x: auto;
+  }
+
+  .diagnosis-filter-row {
+    flex-wrap: wrap;
+  }
+
+  .examination-filter-row {
+    flex-wrap: wrap;
+  }
+
+  .basic-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .basic-name-wrap h3 {
+    font-size: 30px;
+  }
+
+  .detail-action-bar {
+    right: 16px;
+    bottom: 16px;
   }
 
   .record-report-sheet {
@@ -903,6 +2260,11 @@ onMounted(async () => {
 
   .base-info-grid {
     grid-template-columns: 1fr;
+  }
+
+  .basic-top {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>
