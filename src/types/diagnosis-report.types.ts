@@ -2,6 +2,7 @@ import type { DiagnosisReport } from '@/types/health-record.types'
 
 export interface DiagnosisReportQuery {
   createDate?: string
+  doctorId?: number
   healthRecordId?: number
   pageNum?: number
   pageSize?: number

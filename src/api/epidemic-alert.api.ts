@@ -14,10 +14,24 @@ export const epidemicAlertApi = {
   },
 
   /**
+   * 医生端分页查询疫情预警
+   */
+  getDoctorPage(params: EpidemicAlertQuery): Promise<ApiResponse<PageResult<EpidemicAlert>>> {
+    return axiosInstance.get('/doctor/epidemic-alerts/page', { params })
+  },
+
+  /**
    * 根据ID查询疫情预警详情
    */
   getById(id: number): Promise<ApiResponse<EpidemicAlert>> {
     return axiosInstance.get(`/admin/epidemic-alerts/${id}`)
+  },
+
+  /**
+   * 医生端根据ID查询疫情预警详情
+   */
+  getDoctorById(id: number): Promise<ApiResponse<EpidemicAlert>> {
+    return axiosInstance.get(`/doctor/epidemic-alerts/${id}`)
   },
 
   /**

@@ -5,6 +5,8 @@ import type {
   AppointmentQueryDTO,
   CreateDiagnosisReportDTO,
   CreateMedicalVisitDTO,
+  DoctorMedicalVisitQueryDTO,
+  DoctorMedicalVisitRecord,
   ExactTimeAppointmentDTO,
   MedicalVisit,
 } from '@/types/appointment.types'
@@ -23,6 +25,8 @@ const API = {
   DOCTOR_SKIP: '/doctor/appointment/skip',
   DOCTOR_FINISH: '/doctor/appointment/finish',
   DOCTOR_REAL_NAME: '/doctor/appointment/getRealName',
+  DOCTOR_VISIT_LIST: '/doctor/medicalVisit/list',
+  DOCTOR_VISIT_BY_ID: '/doctor/medicalVisit',
   DOCTOR_VISIT_BY_APPOINT: '/doctor/medicalVisit/getByAppointId',
   DOCTOR_VISIT_CREATE: '/doctor/medicalVisit',
   DOCTOR_DIAGNOSIS_BY_VISIT: '/doctor/diagnosisReport/getByVisitId',
@@ -75,6 +79,18 @@ export const getDoctorMedicalVisitByAppointIdAPI = (appointId: number) => {
   return http.get<Result<MedicalVisit | null>>(API.DOCTOR_VISIT_BY_APPOINT, {
     params: { appointId },
   }) as unknown as Promise<Result<MedicalVisit | null>>
+}
+
+export const getDoctorMedicalVisitListAPI = (params: DoctorMedicalVisitQueryDTO) => {
+  return http.get<Result<PageResult<DoctorMedicalVisitRecord>>>(API.DOCTOR_VISIT_LIST, {
+    params,
+  }) as unknown as Promise<Result<PageResult<DoctorMedicalVisitRecord>>>
+}
+
+export const getDoctorMedicalVisitByIdAPI = (id: number) => {
+  return http.get<Result<DoctorMedicalVisitRecord | null>>(`${API.DOCTOR_VISIT_BY_ID}/${id}`) as unknown as Promise<
+    Result<DoctorMedicalVisitRecord | null>
+  >
 }
 
 export const createDoctorMedicalVisitAPI = (payload: CreateMedicalVisitDTO) => {

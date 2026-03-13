@@ -57,10 +57,18 @@ type="button"
 </div>
 </header>
 
-<main class="content" :class="{ 'content-full': activeMenu === 'patients' || activeMenu === 'consultation' || activeMenu === 'appointments' || activeMenu === 'schedule' }">
+<main class="content" :class="{ 'content-full': activeMenu === 'workbench' || activeMenu === 'patients' || activeMenu === 'consultation' || activeMenu === 'appointments' || activeMenu === 'schedule' || activeMenu === 'medical-visits' || activeMenu === 'diagnosis-reports' || activeMenu === 'my-patients' }">
 <transition name="fade-slide" mode="out-in">
 <section
-v-if="activeMenu === 'education'"
+v-if="activeMenu === 'workbench'"
+key="workbench"
+class="module-section doctor-workbench-section"
+>
+<DoctorWorkbench />
+</section>
+
+<section
+v-else-if="activeMenu === 'education'"
 key="education"
 class="module-section health-education-section"
 >
@@ -97,6 +105,30 @@ key="schedule"
 class="module-section doctor-schedule-section"
 >
 <DoctorSchedulePanel />
+</section>
+
+<section
+v-else-if="activeMenu === 'medical-visits'"
+key="medical-visits"
+class="module-section doctor-medical-visit-section"
+>
+<DoctorMedicalVisitList />
+</section>
+
+<section
+v-else-if="activeMenu === 'diagnosis-reports'"
+key="diagnosis-reports"
+class="module-section doctor-diagnosis-report-section"
+>
+<DoctorDiagnosisReportList />
+</section>
+
+<section
+v-else-if="activeMenu === 'my-patients'"
+key="my-patients"
+class="module-section doctor-my-patients-section"
+>
+<DoctorMyPatients />
 </section>
 
 <section v-else :key="activeMenu" class="module-section">
@@ -315,12 +347,16 @@ import { getDoctorAccount, updateDoctorAccount, uploadDoctorAvatar } from '@/api
 import type { UpdateDoctorProfileDTO } from '@/types/doctor.types';
 import AppointmentWebSocket from '@/utils/appointment.websocket';
 import HealthEducation from '@/components/admin/HealthEducation.vue';
+import DoctorWorkbench from '@/components/doctor/DoctorWorkbench.vue';
 import DoctorAppointmentTable from '@/components/doctor/DoctorAppointmentTable.vue';
 import PatientArchive from '@/components/doctor/PatientArchive.vue';
 import DoctorSchedulePanel from '@/components/doctor/DoctorSchedulePanel.vue';
+import DoctorMedicalVisitList from '@/components/doctor/DoctorMedicalVisitList.vue';
+import DoctorDiagnosisReportList from '@/components/doctor/DoctorDiagnosisReportList.vue';
+import DoctorMyPatients from '@/components/doctor/DoctorMyPatients.vue';
 import ConsultationPanel from '@/components/consultation/ConsultationPanel.vue';
 
-type DoctorMenuKey = 'workbench' | 'appointments' | 'patients' | 'consultation' | 'education' | 'schedule';
+type DoctorMenuKey = 'workbench' | 'appointments' | 'patients' | 'consultation' | 'education' | 'schedule' | 'medical-visits' | 'diagnosis-reports' | 'my-patients';
 
 interface MenuItem {
 key: DoctorMenuKey;
@@ -435,7 +471,7 @@ function connectDoctorAppointmentSocket() {
 	doctorAppointmentSocket.value = socket;
 }
 
-const validMenuKeys = menuItems.map((item) => item.key);
+const validMenuKeys: DoctorMenuKey[] = [...menuItems.map((item) => item.key), 'medical-visits', 'diagnosis-reports', 'my-patients'];
 
 const activeMenu = computed<DoctorMenuKey>(() => {
 const tab = route.query.tab;
@@ -796,7 +832,7 @@ color: #94a3b8;
 display: grid;
 gap: 4px;
 margin-top: 8px;
-padding: 0;
+padding: 0 10px;
 }
 
 .menu-item {
@@ -807,7 +843,8 @@ border-radius: 10px;
 display: flex;
 align-items: center;
 gap: 10px;
-padding: 10px 0px;
+width: 100%;
+padding: 10px 12px;
 cursor: pointer;
 transition: all 0.2s ease;
 text-align: left;
@@ -1154,6 +1191,14 @@ overflow: auto;
 background-color: #fafafa;
 }
 
+.doctor-workbench-section {
+display: block;
+padding: 24px;
+overflow: auto;
+width: 100%;
+height: 100%;
+}
+
 .patient-archive-section {
 display: block;
 padding: 0;
@@ -1181,6 +1226,30 @@ height: 100%;
 .doctor-schedule-section {
 display: block;
 padding: 0;
+overflow: auto;
+width: 100%;
+height: 100%;
+}
+
+.doctor-medical-visit-section {
+display: block;
+padding: 24px;
+overflow: auto;
+width: 100%;
+height: 100%;
+}
+
+.doctor-diagnosis-report-section {
+display: block;
+padding: 24px;
+overflow: auto;
+width: 100%;
+height: 100%;
+}
+
+.doctor-my-patients-section {
+display: block;
+padding: 24px;
 overflow: auto;
 width: 100%;
 height: 100%;

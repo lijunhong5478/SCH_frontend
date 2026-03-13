@@ -192,11 +192,7 @@
           </section>
 
           <section v-else-if="activeDetailTab === 'physical'" class="examination-card">
-            <header class="examination-filter-row">
-              <el-button type="primary" :loading="physicalLoading" @click="handlePhysicalQuery">查询</el-button>
-              <el-button :disabled="physicalLoading" @click="handlePhysicalReset">重置</el-button>
-              <el-button v-if="isDoctor" type="success" @click="handleOpenPhysicalCreate">新增体检记录</el-button>
-            </header>
+     
 
             <el-skeleton :loading="physicalLoading" animated :count="3">
               <template #template>
@@ -671,6 +667,10 @@ import { examinationReportTypeOptions } from '@/types/examination-report.types'
 import type { PhysicalExamRole } from '@/types/physical-exam-record.types'
 import type { ResidentMedicalHistoryRole } from '@/types/resident-medical-history.types'
 
+const props = defineProps<{
+  doctorIdFilter?: number
+}>()
+
 interface HealthRecordQueryForm {
   realName?: string
   phone?: string
@@ -774,6 +774,7 @@ const examinationQuery = reactive({
 })
 
 const physicalQuery = reactive({
+  createDate: '',
   pageNum: 1,
   pageSize: 10,
 })
@@ -830,6 +831,7 @@ const pageEnd = computed(() => {
 
 const normalizeQuery = () => {
   return {
+    doctorId: props.doctorIdFilter,
     realName: queryForm.realName?.trim() || undefined,
     phone: queryForm.phone?.trim() || undefined,
     idCard: queryForm.idCard?.trim() || undefined,
@@ -963,21 +965,13 @@ const queryPhysicalList = async () => {
   }
 
   await physicalStore.queryList(physicalRole.value, {
+    createDate: physicalQuery.createDate || undefined,
     recordId: activeRecord.value.id,
     pageNum: physicalQuery.pageNum,
     pageSize: physicalQuery.pageSize,
   })
 }
 
-const handlePhysicalQuery = async () => {
-  physicalQuery.pageNum = 1
-  await queryPhysicalList()
-}
-
-const handlePhysicalReset = async () => {
-  physicalQuery.pageNum = 1
-  await queryPhysicalList()
-}
 
 const handlePhysicalPageChange = async (pageNum: number) => {
   physicalQuery.pageNum = pageNum

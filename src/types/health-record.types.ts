@@ -1,4 +1,5 @@
 export interface DoctorHealthRecordQuery {
+  doctorId?: number
   realName?: string
   phone?: string
   idCard?: string

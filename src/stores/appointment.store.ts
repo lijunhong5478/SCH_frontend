@@ -11,7 +11,9 @@ import {
   getDoctorDiagnosisByVisitIdAPI,
   getDoctorAppointmentListAPI,
   getDoctorAppointmentRealNameAPI,
+  getDoctorMedicalVisitByIdAPI,
   getDoctorMedicalVisitByAppointIdAPI,
+  getDoctorMedicalVisitListAPI,
   getResidentAvailableTimeSlotsAPI,
   getResidentAppointmentListAPI,
   skipAppointmentAPI,
@@ -23,6 +25,8 @@ import type {
   AppointmentQueryDTO,
   CreateDiagnosisReportDTO,
   CreateMedicalVisitDTO,
+  DoctorMedicalVisitQueryDTO,
+  DoctorMedicalVisitRecord,
   ExactTimeAppointmentDTO,
   MedicalVisit,
 } from '@/types/appointment.types'
@@ -42,6 +46,11 @@ export const useAppointmentStore = defineStore('appointment', () => {
   const residentRealNameMap = ref<Record<number, string>>({})
   const medicalVisitLoading = ref(false)
   const medicalVisitDetail = ref<MedicalVisit | null>(null)
+  const doctorMedicalVisitListLoading = ref(false)
+  const doctorMedicalVisitList = ref<DoctorMedicalVisitRecord[]>([])
+  const doctorMedicalVisitTotal = ref(0)
+  const doctorMedicalVisitDetailLoading = ref(false)
+  const doctorMedicalVisitDetail = ref<DoctorMedicalVisitRecord | null>(null)
   const diagnosisLoading = ref(false)
   const diagnosisDetail = ref<DiagnosisReport | null>(null)
 
@@ -129,6 +138,34 @@ export const useAppointmentStore = defineStore('appointment', () => {
     } finally {
       medicalVisitLoading.value = false
     }
+  }
+
+  async function fetchDoctorMedicalVisitList(query: DoctorMedicalVisitQueryDTO) {
+    doctorMedicalVisitListLoading.value = true
+    try {
+      const res = await getDoctorMedicalVisitListAPI(query)
+      if (res.code === ResponseCode.SUCCESS && res.data) {
+        doctorMedicalVisitList.value = res.data.dataList || []
+        doctorMedicalVisitTotal.value = res.data.total || 0
+      }
+    } finally {
+      doctorMedicalVisitListLoading.value = false
+    }
+  }
+
+  async function fetchDoctorMedicalVisitById(id: number) {
+    doctorMedicalVisitDetailLoading.value = true
+    try {
+      const res = await getDoctorMedicalVisitByIdAPI(id)
+      doctorMedicalVisitDetail.value = res.code === ResponseCode.SUCCESS ? (res.data || null) : null
+      return doctorMedicalVisitDetail.value
+    } finally {
+      doctorMedicalVisitDetailLoading.value = false
+    }
+  }
+
+  function clearDoctorMedicalVisitDetail() {
+    doctorMedicalVisitDetail.value = null
   }
 
   async function ensureMedicalVisitByAppointment(appointment: Appointment, doctorId: number) {
@@ -359,6 +396,11 @@ export const useAppointmentStore = defineStore('appointment', () => {
     residentRealNameMap,
     medicalVisitLoading,
     medicalVisitDetail,
+    doctorMedicalVisitListLoading,
+    doctorMedicalVisitList,
+    doctorMedicalVisitTotal,
+    doctorMedicalVisitDetailLoading,
+    doctorMedicalVisitDetail,
     diagnosisLoading,
     diagnosisDetail,
     isDoctorEmpty,
@@ -368,6 +410,9 @@ export const useAppointmentStore = defineStore('appointment', () => {
     getMedicalVisitByAppointId,
     queryMedicalVisitByAppointIdRaw,
     createMedicalVisit,
+    fetchDoctorMedicalVisitList,
+    fetchDoctorMedicalVisitById,
+    clearDoctorMedicalVisitDetail,
     ensureMedicalVisitByAppointment,
     clearMedicalVisitDetail,
     getDiagnosisByVisitId,

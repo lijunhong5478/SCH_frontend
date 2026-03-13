@@ -41,10 +41,37 @@ export interface MedicalVisit {
   appointId: number
   residentId: number
   doctorId: number
+  doctorName?: string
+  doctorPhone?: string
+  doctorDepartment?: string
+  residentName?: string
   chiefComplaint: string
   treatmentAdvice: string
   createTime: string
   isDeleted?: number
+}
+
+export interface DoctorMedicalVisitQueryDTO {
+  createDate?: string
+  doctorId?: number
+  doctorName?: string
+  pageNum?: number
+  pageSize?: number
+  patientName?: string
+  residentId?: number
+}
+
+export interface DoctorMedicalVisitRecord {
+  id: number
+  doctorName: string
+  doctorPhone?: string
+  doctorImage?: string
+  doctorTitle?: number
+  doctorDepartment?: string
+  residentName: string
+  chiefComplaint: string
+  treatmentAdvice: string
+  createTime: string
 }
 
 export interface CreateMedicalVisitDTO {

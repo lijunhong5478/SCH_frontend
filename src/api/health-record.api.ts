@@ -4,12 +4,23 @@ import type { DoctorHealthRecord, DoctorHealthRecordQuery } from '@/types/health
 
 const API = {
   LIST: '/doctor/healthRecord/list',
+  MY_PATIENT_LIST: '/doctor/account/myPatient',
   RESIDENT_RECORD_ID: '/resident/healthRecord/getId',
   DETAIL: '/resident/healthRecord',
 } as const
 
 export const getDoctorHealthRecordListAPI = (params: DoctorHealthRecordQuery) => {
   return http.get<Result<PageResult<DoctorHealthRecord>>>(API.LIST, { params }) as unknown as Promise<Result<PageResult<DoctorHealthRecord>>>
+}
+
+export const getDoctorMyPatientHealthRecordListAPI = (params: DoctorHealthRecordQuery) => {
+  return http.get<Result<PageResult<DoctorHealthRecord>>>(API.MY_PATIENT_LIST, {
+    params: {
+      doctorId: params.doctorId,
+      pageNum: params.pageNum,
+      pageSize: params.pageSize,
+    },
+  }) as unknown as Promise<Result<PageResult<DoctorHealthRecord>>>
 }
 
 export const getResidentHealthRecordIdAPI = (residentId: number) => {

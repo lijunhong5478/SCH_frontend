@@ -2,6 +2,7 @@ import type { PhysicalExamRecord } from '@/types/health-record.types'
 
 export interface PhysicalExamRecordQuery {
   recordId: number
+  createDate?: string
   pageNum?: number
   pageSize?: number
 }

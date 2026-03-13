@@ -1,6 +1,6 @@
 <template>
-  <section class="doctor-appointment-page">
-    <header class="page-header">
+  <section class="doctor-appointment-page" :class="{ embedded }">
+    <header v-if="!embedded" class="page-header">
       <h3>预约管理</h3>
       <div class="query-row">
         <el-date-picker
@@ -8,6 +8,7 @@
           type="date"
           value-format="YYYY-MM-DD"
           placeholder="预约日期"
+          :disabled="Boolean(fixedAppointmentDate)"
           clearable
         />
         <el-select v-model="queryForm.visitStatus" placeholder="就诊状态" clearable class="status-select">
@@ -139,7 +140,7 @@
 
       <el-empty v-if="isDoctorEmpty" description="暂无预约记录" class="table-empty" />
 
-      <footer class="page-footer">
+      <footer v-if="!hidePagination" class="page-footer">
         <span class="page-info">共 {{ doctorTotal }} 条预约</span>
         <el-pagination
           background
@@ -271,6 +272,19 @@ interface DoctorAppointmentQueryForm {
   visitStatus?: number
 }
 
+const props = withDefaults(
+  defineProps<{
+    embedded?: boolean
+    hidePagination?: boolean
+    fixedAppointmentDate?: string
+  }>(),
+  {
+    embedded: false,
+    hidePagination: false,
+    fixedAppointmentDate: undefined,
+  },
+)
+
 const authStore = useAuthStore()
 const appointmentStore = useAppointmentStore()
 const {
@@ -284,7 +298,9 @@ const {
   diagnosisDetail,
 } = storeToRefs(appointmentStore)
 
-const queryForm = reactive<DoctorAppointmentQueryForm>({})
+const queryForm = reactive<DoctorAppointmentQueryForm>({
+  appointmentDate: props.fixedAppointmentDate,
+})
 const pageNum = ref(1)
 const pageSize = ref(10)
 const visitDialogVisible = ref(false)
@@ -324,7 +340,7 @@ const visitTagType = (visitStatus: number) => {
 const normalizeQuery = () => {
   return {
     doctorId: authStore.user?.id,
-    appointmentDate: queryForm.appointmentDate,
+    appointmentDate: props.fixedAppointmentDate || queryForm.appointmentDate,
     visitStatus: queryForm.visitStatus,
     pageNum: pageNum.value,
     pageSize: pageSize.value,
@@ -393,7 +409,7 @@ const preloadDiagnosisStatus = async () => {
     }),
   )
 
-  const map = Object.fromEntries(entries)
+  const map: Record<number, { visitId: number | null; hasDiagnosis: boolean }> = Object.fromEntries(entries)
   diagnosisStatusMap.value = map
   visitExistsMap.value = Object.fromEntries(
     Object.entries(map).map(([appointId, status]) => [Number(appointId), Boolean(status.visitId)]),
@@ -635,7 +651,7 @@ const handleQuery = async () => {
 }
 
 const handleReset = async () => {
-  queryForm.appointmentDate = undefined
+  queryForm.appointmentDate = props.fixedAppointmentDate || undefined
   queryForm.visitStatus = undefined
   await handleQuery()
 }
@@ -671,6 +687,17 @@ onUnmounted(() => {
   min-height: 0;
   padding: 16px 18px;
   box-sizing: border-box;
+}
+
+.doctor-appointment-page.embedded {
+  padding: 0;
+  gap: 0;
+  min-height: auto;
+}
+
+.doctor-appointment-page.embedded .table-card {
+  border: 0;
+  padding: 0;
 }
 
 .page-header {
