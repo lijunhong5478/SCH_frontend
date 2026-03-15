@@ -153,6 +153,8 @@ export interface UpdateDoctorScheduleDTO {
   doctorSchedules: {
     id: number;
     doctorId: number;
+    weekDay: number;
+    timeSlot: 'AM' | 'PM';
     maxNumber: number;
     status: number;
   }[];

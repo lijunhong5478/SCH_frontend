@@ -699,24 +699,30 @@ const saveScheduleEdit = async () => {
   if (!editingSchedule.value || !currentDoctor.value) return
   
   try {
-    // 更新本地状态
-    doctorScheduleStore.updateSingleSchedule(editingSchedule.value.id, {
-      maxNumber: editForm.value.maxNumber,
-      status: editForm.value.status
-    })
-    
-    // 准备更新数据
+		// 后端是先删后插，必须提交完整排班列表并包含 weekDay/timeSlot。
+		const updatedSchedules = scheduleList.value.map((item) => {
+			const isEditingItem = item.id === editingSchedule.value!.id
+			return {
+				id: item.id,
+				doctorId: currentDoctor.value!.id,
+				weekDay: item.weekDay,
+				timeSlot: item.timeSlot,
+				maxNumber: isEditingItem ? editForm.value.maxNumber : item.maxNumber,
+				status: isEditingItem ? editForm.value.status : item.status
+			}
+		})
+
     const updateData = {
       doctorId: currentDoctor.value.id,
-      doctorSchedules: [{
-        id: editingSchedule.value.id,
-        doctorId: currentDoctor.value.id,
-        maxNumber: editForm.value.maxNumber,
-        status: editForm.value.status
-      }]
+			doctorSchedules: updatedSchedules
     }
     
     await doctorScheduleStore.updateDoctorSchedule(updateData)
+
+		doctorScheduleStore.updateSingleSchedule(editingSchedule.value.id, {
+			maxNumber: editForm.value.maxNumber,
+			status: editForm.value.status
+		})
     
     ElMessage.success('排班更新成功')
     editDialogVisible.value = false
